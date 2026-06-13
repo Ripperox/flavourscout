@@ -174,13 +174,27 @@ tools were ever called.
 - `fetch_food_coupons` returned `{}` for McDonald's (coupons likely
   cart-dependent) → real coupon shape still uncaptured.
 
+- [real-data round 2 — SWIGGYIT coupon] GREEN: 402 passed. User reported a
+  Chandivali code SWIGGYIT (flat ₹80 off above ₹159). `fetch_food_coupons`
+  returns `{}` for it across McDonald's/KFC/Burger King, with AND without the
+  `couponCode` arg → the code is cart-gated (only surfaces once a ≥₹159 cart
+  exists); the read-only endpoint can't reveal it. Modelled it from the user's
+  stated rule as `Coupon(flat, 80, "subtotal >= 159")` and ran it on the real
+  McDonald's menu: at ₹200 budget it unlocks the step function — plain cart =
+  1 burger (pref 0.93), with SWIGGYIT = 2 burgers crossing ₹159 → −₹80 →
+  ₹199.90 (pref 1.85). Pinned by `tests/test_real_coupon_scenario.py`.
+  `parse_coupons` STILL has no real API shape (endpoint stays empty); capturing
+  it needs the cart-build path below (mutating, pending user approval).
+
 ## Next steps (in order)
 
-1. **Capture a real coupon shape:** find a restaurant/condition where
-   `fetch_food_coupons` returns a non-empty payload (or pass a `couponCode`),
-   save it as a fixture, and implement `parse_coupons` against it (it
-   currently raises on non-empty). Until then live-menu optimization runs
-   coupon-free.
+1. **Capture the real coupon API shape (needs approval):** the only way the
+   MCP reveals a cart-gated code like SWIGGYIT is to build a real ≥₹159 cart
+   (`update_food_cart`) and read it back (`apply_food_coupon`/`get_food_cart`).
+   That MUTATES the user's live Swiggy cart, so do it only with explicit
+   per-action approval, then flush. Save the payload as a fixture and shape
+   `parse_coupons` against it (it currently raises on non-empty). Until then,
+   user-described coupons work (see test_real_coupon_scenario).
 2. **Capture a real variant shape:** a restaurant with `hasVariants:true`
    items (beverages elsewhere), then implement+test the variant path (it
    currently raises).
