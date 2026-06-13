@@ -1,0 +1,50 @@
+{
+  "restaurant": {
+    "id": "668678",
+    "name": "McDonald's",
+    "city": "Mumbai",
+    "areaName": "Saki Vihar Powai",
+    "cuisines": ["Burgers", "Beverages"],
+    "avgRating": 4.5,
+    "isOpen": true,
+    "deliveryTime": 30
+  },
+  "categories": [
+    {
+      "title": "Burgers & Wraps",
+      "categoryId": "32866838",
+      "items": [
+        {"id": "109348830", "name": "McAloo Tikki Burger", "price": 79, "inStock": 1, "isVeg": true, "isBestseller": true, "rating": "4.4", "hasVariants": false, "hasAddons": false},
+        {"id": "109348844", "name": "McChicken Burger", "price": 159, "inStock": 1, "rating": "4.6", "hasVariants": false, "hasAddons": false},
+        {"id": "109348828", "name": "Veg Maharaja Mac Burger", "price": 235, "inStock": 1, "isVeg": true, "rating": "4.2", "hasVariants": false, "hasAddons": false},
+        {"id": "109348838", "name": "McVeggie Burger", "price": 159, "inStock": 1, "isVeg": true, "rating": "4.5", "hasVariants": false, "hasAddons": false}
+      ],
+      "totalItems": 32,
+      "hasMoreItems": true
+    },
+    {
+      "title": "99 Store",
+      "categoryId": "1234567",
+      "items": [
+        {"id": "143869468", "name": "New McSaver Pizza McPuff", "price": 171.57, "inStock": 1, "isVeg": true, "rating": "4.4", "hasVariants": false, "hasAddons": true},
+        {"id": "109348897", "name": "McChicken Burger Combo", "price": 325, "inStock": 1, "rating": "4.5", "hasVariants": false, "hasAddons": true}
+      ],
+      "totalItems": 15,
+      "hasMoreItems": true
+    },
+    {
+      "title": "Burger Combos ( 3 Pc Meals )",
+      "categoryId": "32866845",
+      "items": [
+        {"id": "109348897", "name": "McChicken Burger Combo", "price": 325, "inStock": 1, "rating": "4.5", "hasVariants": false, "hasAddons": true},
+        {"id": "109348885", "name": "Mexican McAloo Tikki Burger Combo", "price": 235, "inStock": 1, "isVeg": true, "rating": "4.4", "hasVariants": false, "hasAddons": true}
+      ],
+      "totalItems": 41,
+      "hasMoreItems": true
+    }
+  ],
+  "totalCategories": 15,
+  "page": 1,
+  "pageSize": 8,
+  "hasMore": true
+}

@@ -1,0 +1,50 @@
+{
+  "items": [
+    {
+      "name": "McChicken Burger Combo",
+      "price": 325,
+      "menu_item_id": "109348897",
+      "inStock": 1,
+      "rating": "4.5",
+      "totalRatings": "134",
+      "hasVariants": false,
+      "hasAddons": true,
+      "addons": [
+        {
+          "groupId": "164859071",
+          "groupName": "Choose an option for Coke",
+          "choices": [
+            {"id": "100543620", "name": "Upgrade to American Mud Pie Shake", "price": 80},
+            {"id": "95615645", "name": "Fanta", "price": 0},
+            {"id": "95615640", "name": "Sprite", "price": 0},
+            {"id": "117291768", "name": "Mango Smoothie", "price": 110},
+            {"id": "117291767", "name": "Upgrade to Hot Chocolate", "price": 80},
+            {"id": "117291766", "name": "Coke Zero Can", "price": 31}
+          ],
+          "maxAddons": 1,
+          "maxFreeAddons": -1
+        },
+        {
+          "groupId": "231116656",
+          "groupName": "Choose an option for Fries (Medium)",
+          "choices": [
+            {"id": "138184425", "name": "Upgrade to  Cheese Fries", "price": 40}
+          ],
+          "maxAddons": 1,
+          "maxFreeAddons": -1
+        },
+        {
+          "groupId": "224696137",
+          "groupName": "Choose an option for Select Add on",
+          "choices": [
+            {"id": "137381185", "name": "Mcflurry Oreo ( S )", "price": 109}
+          ],
+          "maxAddons": 1,
+          "maxFreeAddons": -1
+        }
+      ]
+    }
+  ],
+  "total": 1,
+  "query": "burger"
+}
