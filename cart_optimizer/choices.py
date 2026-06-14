@@ -11,6 +11,7 @@ the solvers don't share).
 from __future__ import annotations
 
 import datetime as dt
+import warnings
 from itertools import combinations, product
 
 from .models import Combo, ComboLine, Item, ItemLine, Menu, MenuError, User
@@ -61,10 +62,21 @@ def menu_choices(
     menu: Menu, user: User, now: dt.time | str | None = None
 ) -> list[list[ItemLine | ComboLine]]:
     """Choice lists for every orderable product, in menu order (items first,
-    then combos). Each inner list shares one product_id."""
+    then combos). Each inner list shares one product_id.
+
+    A single product whose configuration space explodes past
+    MAX_LINES_PER_PRODUCT is SKIPPED (with a warning) rather than aborting the
+    whole menu — one pathological item (huge addon matrix) shouldn't sink the
+    entire optimization. Both solvers call this, so they stay consistent."""
     products: list[list[ItemLine | ComboLine]] = []
     for item in menu.orderable_items(now):
-        products.append(product_lines(item))
+        try:
+            products.append(product_lines(item))
+        except MenuError as exc:
+            warnings.warn(f"skipped product in choices: {exc}", stacklevel=2)
     for combo in menu.orderable_combos(user):
-        products.append(product_lines(combo))
+        try:
+            products.append(product_lines(combo))
+        except MenuError as exc:
+            warnings.warn(f"skipped product in choices: {exc}", stacklevel=2)
     return products

@@ -96,6 +96,21 @@ def test_explosion_guard():
         product_lines(item)
 
 
+def test_menu_choices_skips_exploding_product_not_whole_menu():
+    # One pathological item must NOT abort the whole menu's choices.
+    big_opts = tuple(mk_option(f"o{i}", 10) for i in range(16))
+    big_group = AddonGroup(id="grp_big", name="big", min_select=0, max_select=8, options=big_opts)
+    boom = mk_item("boom", 100, addons=(big_group,))
+    fine = mk_item("fine", 80)
+    menu = Menu(restaurant="r", items=(boom, fine))
+    with pytest.warns(UserWarning):
+        choices = menu_choices(menu, User())
+    # the good item survives; the exploding one is skipped
+    ids = {lines[0].product_id for lines in choices}
+    assert "itm_fine" in ids
+    assert "itm_boom" not in ids
+
+
 def test_menu_choices_filters_and_groups_per_product():
     menu = Menu(
         restaurant="r",
