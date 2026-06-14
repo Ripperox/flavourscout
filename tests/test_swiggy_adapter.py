@@ -157,14 +157,118 @@ def test_nonempty_coupon_shape_refuses_to_guess():
         parse_coupons({"bestCoupons": [{"code": "FLAT100", "mystery": "shape"}]})
 
 
-# --- variants guard -----------------------------------------------------------
+# --- variants (variantsV2 guard + variations parsing) -------------------------
 
-def test_unsupported_variant_shape_is_rejected_not_guessed():
+def test_unsupported_variantsV2_is_rejected():
     item = {"id": "1", "name": "x", "price": 50, "inStock": 1, "hasVariants": True,
             "variantsV2": {"some": "uncaptured shape"}}
     with pytest.raises(SwiggyAdapterError):
         parse_menu({"restaurant": {"name": "r"}, "categories": [
             {"title": "c", "items": [item]}]})
+
+
+def test_hasVariants_without_search_data_raises():
+    item = {"id": "1", "name": "x", "price": 50, "inStock": 1, "hasVariants": True}
+    with pytest.raises(SwiggyAdapterError, match="variation detail"):
+        parse_menu({"restaurant": {"name": "r"}, "categories": [
+            {"title": "c", "items": [item]}]})
+
+
+@pytest.fixture
+def starbucks_latte_search():
+    return load("starbucks_latte_search.json")
+
+
+def _starbucks_menu_response():
+    return {
+        "restaurant": {"name": "Starbucks Coffee"},
+        "categories": [{"title": "Hot Coffees", "items": [
+            {"id": "97388430", "name": "Caffe Latte", "price": 295,
+             "inStock": 1, "rating": "4.4", "hasVariants": True},
+        ]}],
+    }
+
+
+def test_parse_variant_item_creates_one_variant_per_size(starbucks_latte_search):
+    menu = parse_menu(_starbucks_menu_response(), search_responses=[starbucks_latte_search])
+    assert len(menu.items) == 1
+    latte = menu.items[0]
+    assert latte.id == "itm_97388430"
+    # 4 in-stock size options → 4 Variants
+    assert len(latte.variants) == 4
+    costs = sorted(v.cost for v in latte.variants)
+    assert costs == [295, 330, 370, 410]
+
+
+def test_variant_names_match_size_labels(starbucks_latte_search):
+    menu = parse_menu(_starbucks_menu_response(), search_responses=[starbucks_latte_search])
+    latte = menu.items[0]
+    names = {v.name for v in latte.variants}
+    assert names == {"HOT SHORT", "HOT TALL", "HOT GRANDE", "HOT VENTI"}
+
+
+def test_variant_id_encodes_group_and_variation(starbucks_latte_search):
+    menu = parse_menu(_starbucks_menu_response(), search_responses=[starbucks_latte_search])
+    latte = menu.items[0]
+    tall = next(v for v in latte.variants if v.name == "HOT TALL")
+    # ID must encode primary size group AND secondary milk group default
+    assert tall.id.startswith("var_")
+    assert "57291002:177629512" in tall.id   # size group : TALL variation
+    assert "57291004:177629516" in tall.id   # milk group : Regular milk default
+
+
+def test_secondary_milk_group_becomes_optional_addon(starbucks_latte_search):
+    menu = parse_menu(_starbucks_menu_response(), search_responses=[starbucks_latte_search])
+    latte = menu.items[0]
+    # milk group (57291004) → AddonGroup id grp_var57291004
+    milk_group = next((g for g in latte.addons if "57291004" in g.id), None)
+    assert milk_group is not None
+    assert milk_group.min_select == 0   # optional — default already priced in
+    assert milk_group.max_select == 1
+    opt_names = {o.name for o in milk_group.options}
+    assert "Almond" in opt_names and "Soy" in opt_names
+
+
+def test_regular_addons_are_also_parsed(starbucks_latte_search):
+    menu = parse_menu(_starbucks_menu_response(), search_responses=[starbucks_latte_search])
+    latte = menu.items[0]
+    sauce_group = next((g for g in latte.addons if "Syrup" in g.name or "Sauce" in g.name), None)
+    assert sauce_group is not None
+    opt_names = {o.name for o in sauce_group.options}
+    assert "Caramel Sauce" in opt_names
+
+
+# --- cart_to_swiggy_items variant decoding ------------------------------------
+
+def test_cart_to_swiggy_items_emits_variant_pairs(starbucks_latte_search):
+    from cart_optimizer.adapters.swiggy_session import cart_to_swiggy_items
+    from cart_optimizer.models import Cart, ItemLine
+
+    menu = parse_menu(_starbucks_menu_response(), search_responses=[starbucks_latte_search])
+    latte = menu.items[0]
+    tall = next(v for v in latte.variants if v.name == "HOT TALL")
+    cart = Cart((ItemLine(latte, tall),))
+    items = cart_to_swiggy_items(cart)
+
+    assert len(items) == 1
+    entry = items[0]
+    assert entry["menu_item_id"] == "97388430"
+    assert "variants" in entry
+    pairs = {(p["group_id"], p["variation_id"]) for p in entry["variants"]}
+    assert ("57291002", "177629512") in pairs   # HOT TALL
+    assert ("57291004", "177629516") in pairs   # Regular milk default
+
+
+def test_cart_to_swiggy_items_no_variants_for_single_variant_items():
+    from cart_optimizer.adapters.swiggy_session import cart_to_swiggy_items
+    import json
+    from pathlib import Path
+    menu = parse_menu(json.loads((Path(__file__).parent / "fixtures" / "mcdonalds_menu.json").read_text()))
+    item = menu.items[0]
+    from cart_optimizer.models import Cart, ItemLine
+    cart = Cart((ItemLine(item, item.variants[0]),))
+    items = cart_to_swiggy_items(cart)
+    assert "variants" not in items[0]   # synthetic variant → no group pairs needed
 
 
 # --- end to end ---------------------------------------------------------------

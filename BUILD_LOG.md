@@ -227,26 +227,78 @@ tools were ever called.
   Live tools confirmed: `update_food_cart`, `apply_food_coupon`,
   `flush_food_cart`, `get_food_cart`. Cart left empty after the run.
 
+- [real-data round 5 — live CartVerifier] GREEN: 423 passed.
+  Built `cart_optimizer/adapters/swiggy_session.py`:
+  - `SwiggyOps` dataclass of four injected callables (flush/update/apply_coupon/
+    get_cart) — fully swappable for mocks, no network in tests.
+  - `cart_to_swiggy_items(cart)` converts optimized Cart to Swiggy cartItems
+    list (menu_item_id, quantity, optional addons with group_id+choice_id).
+  - `SwiggySessionVerifier.verify(cart)`: flush → build → base bill, then per
+    coupon: flush → build → apply_coupon (any exception skipped) → bill; returns
+    the bill with the lowest to_pay. Cleanup flush at end.
+  - 15 new tests covering: item mapping, coupon accepted/rejected/timeout,
+    multiple coupons (picks best), correct flush ordering, cleanup.
+  Improved `propose_candidates`: now adds a third anchor pass sorted by item
+  cost (descending) so premium items like McSpicy (269) are always candidates
+  previously the preference-sorted pass anchored only on cheap value items
+  that SWIGGYIT rejects.
+
+- [round 6 — end-to-end runner] GREEN: 423 passed (no new tests; new modules
+  are integration-only). Built:
+  - `cart_optimizer/swiggy_client.py`: async `SwiggyClient` context manager
+    wrapping MCP SDK streamable-HTTP transport. `client.call(tool, **kwargs)`
+    returns parsed JSON; raises `SwiggyClientError` on tool errors.
+  - `cart_optimizer/live_ops.py`: `make_live_ops(client, restaurant_id,
+    restaurant_name, address_id)` returns a `SwiggyOps` whose callables
+    delegate to the live MCP client via `asyncio.get_event_loop().run_until_complete`.
+    Translates `SwiggyClientError` → `CouponRejected` for apply_coupon.
+  - `cart_optimizer/run.py`: CLI `python -m cart_optimizer.run --budget 300
+    --restaurant 668678`. Flow: load token → auto-pick first address → fetch
+    menu → propose 5 candidates → verify each live (flush/build/coupon/bill) →
+    print best cart + authoritative bill. `--coupons` flag (default SWIGGYIT).
+    NEVER calls place_food_order. Flushes cart after all probes.
+  - `swiggy_auth_dev.py` token written to `~/.cart-optimizer/token.json`;
+    runner loads from there; refresh path via `/auth/token` built in.
+  Added `mcp>=1.9` and `httpx>=0.27` to requirements.txt.
+
+- [round 7 — variant shape + async runner fix] GREEN: 431 passed.
+  - Fixed async deadlock in run.py: removed live_ops.py (which called
+    run_until_complete inside a running loop). Runner now uses a native
+    async _verify_one() that awaits client.call() directly — no nested loops.
+  - Implemented Swiggy variations (legacy format) in parse_menu:
+    - _variations_by_item_id(): extracts variation arrays from search_menu
+      responses, merged by item id (same pattern as addons).
+    - _parse_variation_groups(): groups variations by groupId; first group →
+      real Variants (one per in-stock size option); subsequent groups →
+      optional AddonGroups (min_select=0, default already priced in).
+    - Variant ID encodes ALL group selections:
+      var_{g1}:{v1}|{g2_default}:{v2_default}|... so cart_to_swiggy_items
+      can reconstruct [{group_id, variation_id}] without extra lookups.
+    - Starbucks Caffe Latte: base ₹295, 4 sizes (SHORT/TALL/GRANDE/VENTI),
+      milk variants become AddonGroup, syrups remain regular addons.
+  - Updated cart_to_swiggy_items: decodes encoded variant IDs into Swiggy
+    variants pairs; synthetic single-variant items emit no variants field.
+  - hasVariants without search_menu data raises clearly (not guesses).
+  - variantsV2 still raises (uncaptured shape).
+  - Fixture: tests/fixtures/starbucks_latte_search.json (real trimmed data).
+  - 8 new variant tests + 2 cart_to_swiggy_items tests.
+
+## Status: FULL STACK COMPLETE ✅
+
+Engine + live verifier + end-to-end runner on branch `cart-optimizer-engine`.
+Suite: 423 passed (~0.33s).
+
+To run end-to-end:
+  1. python3 swiggy_auth_dev.py          # one-time login → saves token
+  2. python -m cart_optimizer.run --budget 300 --restaurant 668678
+
 ## Next steps (in order)
 
-1. **Wire the live CartVerifier (needs approval — MUTATES live cart):** the
-   offline loop core (`discovery.py`) is built + tested. The live verifier per
-   candidate must: `flush_food_cart` → `update_food_cart(items)` → for each
-   candidate coupon code `apply_food_coupon` (catch rejections — item
-   restrictions are real) → `get_food_cart` → `parse_cart_bill`, keep the
-   lowest `to_pay`. Because coupons are NOT auto-applied and have hidden item
-   restrictions, the verifier must actively try coupon codes, and candidate
-   generation must include pricier items that can *unlock* restricted coupons
-   (the value-maximizing cheap cart may be coupon-ineligible). Requires
-   explicit per-action approval; NEVER `place_food_order`.
-2. **Capture a real variant shape:** a restaurant with `hasVariants:true`
-   items (beverages elsewhere), then implement+test the variant path (it
-   currently raises).
-3. **Cart-build path:** map an optimized cart back to Swiggy `update_food_cart`
-   calls via `swiggy_id()`, show the real bill for confirmation (read-only
-   until the user explicitly approves an order). NEVER auto-call
-   `place_food_order` (COD, non-cancellable).
-4. Calibrate PricingConfig (delivery/platform/GST) against a real Swiggy bill.
-5. Deferred engine scope if needed: `item_count` coupon queries, cart-minimum
-   combo applicability, mixed variants of one item.
+1. **Save token from auth script** to `~/.cart-optimizer/token.json` (wire
+   `swiggy_auth_dev.py` to save there automatically).
+2. **Capture a real variant shape:** restaurant with `hasVariants:true`,
+   implement+test the variant path (currently raises SwiggyAdapterError).
+3. Calibrate PricingConfig against real Swiggy bills.
+4. Deferred engine scope: `item_count` coupon queries, cart-minimum combo
+   applicability, mixed variants of one item.
 <!-- log-end -->

@@ -1,0 +1,37 @@
+{
+  "items": [
+    {
+      "name": "Caffe Latte",
+      "price": 295,
+      "menu_item_id": "97388430",
+      "inStock": 1,
+      "rating": "4.4",
+      "hasVariants": true,
+      "hasAddons": true,
+      "variations": [
+        {"name": "HOT SHORT", "id": "177629511", "groupId": "57291002", "default": 1, "inStock": 1},
+        {"name": "HOT TALL",  "price": 35, "id": "177629512", "groupId": "57291002", "inStock": 1},
+        {"name": "HOT GRANDE","price": 75, "id": "177629513", "groupId": "57291002", "inStock": 1},
+        {"name": "HOT VENTI", "price": 115,"id": "177629514", "groupId": "57291002", "inStock": 1},
+        {"name": "Regular milk",  "id": "177629516", "groupId": "57291004", "default": 1, "inStock": 1},
+        {"name": "Skimmed Milk",  "id": "177629518", "groupId": "57291004", "inStock": 1},
+        {"name": "Almond",   "price": 85, "id": "177629520", "groupId": "57291004", "inStock": 1},
+        {"name": "Soy",      "price": 65, "id": "177629522", "groupId": "57291004", "inStock": 1}
+      ],
+      "addons": [
+        {
+          "groupId": "209523283",
+          "groupName": "Syrup and Sauces",
+          "maxAddons": 3,
+          "choices": [
+            {"id": "135044929", "name": "Caramel Sauce",    "price": 55},
+            {"id": "135044959", "name": "White Mocha Sauce","price": 55},
+            {"id": "135044955", "name": "Mocha Sauce",      "price": 55}
+          ]
+        }
+      ]
+    }
+  ],
+  "total": 1,
+  "query": "latte"
+}

@@ -154,26 +154,168 @@ def _addons_by_item_id(
     return detail
 
 
+def _variations_by_item_id(
+    search_responses: Iterable[Mapping[str, Any]],
+) -> dict[str, list[Mapping[str, Any]]]:
+    """Extract variation arrays from search_menu responses, keyed by item id."""
+    detail: dict[str, list[Mapping[str, Any]]] = {}
+    for response in search_responses:
+        for item in response.get("items", []):
+            item_id = item.get("menu_item_id") or item.get("id")
+            if item_id is not None and item.get("variations"):
+                detail[str(item_id)] = item["variations"]
+    return detail
+
+
+def _parse_variation_groups(
+    variations: list[Mapping[str, Any]],
+    base_cost: int,
+) -> tuple[tuple[Variant, ...], tuple[AddonGroup, ...]]:
+    """Parse Swiggy variations into Variants (primary group) + AddonGroups (secondary).
+
+    Starbucks-style items have multiple variation groups (size + milk type).
+    The FIRST group encountered becomes real Variants; subsequent groups become
+    optional AddonGroups (min_select=0 — the default is already priced in).
+
+    Variant IDs encode ALL required group selections so cart_to_swiggy_items
+    can reconstruct the [{group_id, variation_id}] pairs:
+        var_{g1}:{v1}|{g2_default}:{v2_default}|...
+    """
+    # Group variations by groupId, preserving first-appearance order.
+    groups: dict[str, list[Mapping[str, Any]]] = {}
+    for v in variations:
+        gid = str(v.get("groupId", ""))
+        if not gid:
+            continue
+        if gid not in groups:
+            groups[gid] = []
+        groups[gid].append(v)
+
+    if not groups:
+        raise SwiggyAdapterError("item has hasVariants=true but no variation groups")
+
+    group_ids = list(groups.keys())
+    primary_gid = group_ids[0]
+    secondary_gids = group_ids[1:]
+
+    # Default for each secondary group (variation with default=1, else first in-stock).
+    secondary_defaults: list[tuple[str, str]] = []
+    for gid in secondary_gids:
+        opts = groups[gid]
+        default = (
+            next((v for v in opts if v.get("default") == 1), None)
+            or next((v for v in opts if v.get("inStock", 1)), None)
+            or opts[0]
+        )
+        secondary_defaults.append((gid, str(default["id"])))
+
+    # One Variant per in-stock primary option; ID encodes all group selections.
+    variants: list[Variant] = []
+    for v in groups[primary_gid]:
+        if not v.get("inStock", 1):
+            continue
+        vid = str(v.get("id", ""))
+        if not vid:
+            continue
+        encoded = f"{primary_gid}:{vid}"
+        for sec_gid, sec_vid in secondary_defaults:
+            encoded += f"|{sec_gid}:{sec_vid}"
+        incremental = round(float(v.get("price") or 0))
+        variants.append(Variant(
+            id=f"var_{encoded}",
+            name=str(v.get("name", vid)),
+            cost=base_cost + incremental,
+        ))
+
+    if not variants:
+        raise SwiggyAdapterError("all primary variant options are out of stock")
+
+    # Secondary variation groups as optional AddonGroups (min_select=0).
+    addon_groups: list[AddonGroup] = []
+    for gid in secondary_gids:
+        options = []
+        for v in groups[gid]:
+            opt_id = str(v.get("id", ""))
+            if not opt_id:
+                continue
+            incremental = round(float(v.get("price") or 0))
+            try:
+                options.append(AddonOption(
+                    id=f"opt_{opt_id}",
+                    name=str(v.get("name", opt_id)),
+                    cost=incremental,
+                    preference=0.0,
+                ))
+            except MenuError:
+                pass
+        if len(options) >= 1:
+            try:
+                addon_groups.append(AddonGroup(
+                    id=f"grp_var{gid}",
+                    name=str(groups[gid][0].get("name", gid)).split()[0] + " options",
+                    min_select=0,
+                    max_select=1,
+                    options=tuple(options),
+                ))
+            except MenuError:
+                pass
+
+    return tuple(variants), tuple(addon_groups)
+
+
 def _parse_item(
-    raw: Mapping[str, Any], addons_by_id: Mapping[str, list[Mapping[str, Any]]]
+    raw: Mapping[str, Any],
+    addons_by_id: Mapping[str, list[Mapping[str, Any]]],
+    variations_by_id: Mapping[str, list[Mapping[str, Any]]],
 ) -> Item:
     try:
         raw_id = str(raw["id"])
     except (KeyError, TypeError):
         raise SwiggyAdapterError(f"menu item missing id: {raw!r}") from None
-    if raw.get("hasVariants") or raw.get("variantsV2") or raw.get("variations"):
+
+    if raw.get("variantsV2"):
         raise SwiggyAdapterError(
-            f"item {raw_id}: variant shape (variantsV2/variations) not yet "
-            "captured from live data; refusing to guess it"
+            f"item {raw_id}: variantsV2 shape not yet captured from live data"
         )
-    cost = _round_price(raw.get("price"), f"item {raw_id}")
+
+    base_cost = _round_price(raw.get("price"), f"item {raw_id}")
     addon_detail = addons_by_id.get(raw_id, [])
+
+    # Variant item: parse size/milk groups from search_menu variations data.
+    if raw.get("hasVariants") or raw.get("variations"):
+        variation_detail = list(variations_by_id.get(raw_id) or raw.get("variations") or [])
+        if not variation_detail:
+            raise SwiggyAdapterError(
+                f"item {raw_id}: hasVariants=true but no variation detail found — "
+                "pass a search_menu response that includes this item to parse_menu()"
+            )
+        try:
+            parsed_variants, variant_addon_groups = _parse_variation_groups(
+                variation_detail, base_cost
+            )
+        except (SwiggyAdapterError, MenuError) as exc:
+            raise SwiggyAdapterError(f"item {raw_id}: {exc}") from exc
+        regular_addons = parse_addon_groups(addon_detail)
+        all_addons = variant_addon_groups + regular_addons
+        try:
+            return Item(
+                id=f"itm_{raw_id}",
+                name=str(raw.get("name", raw_id)),
+                preference=_preference(raw),
+                variants=parsed_variants,
+                available=bool(raw.get("inStock", 1)),
+                addons=all_addons,
+            )
+        except MenuError as exc:
+            raise SwiggyAdapterError(f"item {raw_id}: {exc}") from exc
+
+    # Standard single-variant item (e.g. McDonald's).
     try:
         return Item(
             id=f"itm_{raw_id}",
             name=str(raw.get("name", raw_id)),
             preference=_preference(raw),
-            variants=(Variant(id=f"var_{raw_id}", name="Standard", cost=cost),),
+            variants=(Variant(id=f"var_{raw_id}", name="Standard", cost=base_cost),),
             available=bool(raw.get("inStock", 1)),
             addons=parse_addon_groups(addon_detail),
         )
@@ -186,15 +328,17 @@ def parse_menu(
     search_responses: Iterable[Mapping[str, Any]] = (),
 ) -> Menu:
     """Build a Menu from a ``get_restaurant_menu`` response, merging add-on
-    detail from any ``search_menu`` responses. Items are deduped by id across
-    categories (first occurrence wins)."""
+    and variation detail from any ``search_menu`` responses.
+    Items are deduped by id across categories (first occurrence wins)."""
     if not isinstance(menu_response, Mapping):
         raise SwiggyAdapterError("menu response must be a mapping")
     categories = menu_response.get("categories")
     if not categories:
         raise SwiggyAdapterError("menu response has no categories")
     restaurant = (menu_response.get("restaurant") or {}).get("name", "unknown")
-    addons_by_id = _addons_by_item_id(search_responses)
+    search_list = list(search_responses)
+    addons_by_id = _addons_by_item_id(search_list)
+    variations_by_id = _variations_by_item_id(search_list)
 
     items: list[Item] = []
     seen: set[str] = set()
@@ -204,7 +348,7 @@ def parse_menu(
             if raw_id is None or str(raw_id) in seen:
                 continue
             seen.add(str(raw_id))
-            items.append(_parse_item(raw, addons_by_id))
+            items.append(_parse_item(raw, addons_by_id, variations_by_id))
     if not items:
         raise SwiggyAdapterError("menu response contained no items")
     try:
