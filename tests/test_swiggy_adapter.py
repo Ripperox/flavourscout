@@ -157,9 +157,11 @@ def test_nonempty_coupon_shape_refuses_to_guess():
         parse_coupons({"bestCoupons": [{"code": "FLAT100", "mystery": "shape"}]})
 
 
-# --- variants (variantsV2 guard + variations parsing) -------------------------
+# --- variants (variantsV2 + legacy variations parsing) ------------------------
 
-def test_unsupported_variantsV2_is_rejected():
+def test_malformed_variantsV2_falls_through_to_no_detail():
+    # A variantsV2 that isn't the captured shape yields no usable variations,
+    # so (with hasVariants) it raises the clear "no variant detail" error.
     item = {"id": "1", "name": "x", "price": 50, "inStock": 1, "hasVariants": True,
             "variantsV2": {"some": "uncaptured shape"}}
     with pytest.raises(SwiggyAdapterError):
@@ -167,9 +169,83 @@ def test_unsupported_variantsV2_is_rejected():
             {"title": "c", "items": [item]}]})
 
 
+@pytest.fixture
+def bk_variantsv2_search():
+    return load("burgerking_variantsv2_search.json")
+
+
+def _bk_menu_response():
+    return {
+        "restaurant": {"name": "Burger King"},
+        "categories": [{"title": "Burgers", "items": [
+            {"id": "101196423", "name": "Crispy Chicken Burger", "price": 99,
+             "inStock": 1, "rating": "4.4", "hasVariants": True},
+        ]}],
+    }
+
+
+def test_parse_variantsV2_creates_one_variant_per_option(bk_variantsv2_search):
+    menu = parse_menu(_bk_menu_response(), search_responses=[bk_variantsv2_search])
+    burger = menu.items[0]
+    assert burger.id == "itm_101196423"
+    # 4 variations: Burger Only / Reg Meal / Shake Meal / 4in1
+    assert len(burger.variants) == 4
+    # variantsV2 prices are ABSOLUTE, not increments
+    costs = sorted(v.cost for v in burger.variants)
+    assert costs == [99, 218, 297, 298]
+
+
+def test_variantsV2_id_is_marked_v2_and_encodes_group(bk_variantsv2_search):
+    menu = parse_menu(_bk_menu_response(), search_responses=[bk_variantsv2_search])
+    burger = menu.items[0]
+    burger_only = next(v for v in burger.variants if v.cost == 99)
+    assert burger_only.id.startswith("var_v2@")
+    assert "75718135:220969284" in burger_only.id   # group : Burger Only variation
+
+
+def test_variantsV2_cart_payload_uses_variantsV2_field(bk_variantsv2_search):
+    from cart_optimizer.adapters.swiggy_session import cart_to_swiggy_items
+    from cart_optimizer.models import Cart, ItemLine
+
+    menu = parse_menu(_bk_menu_response(), search_responses=[bk_variantsv2_search])
+    burger = menu.items[0]
+    burger_only = next(v for v in burger.variants if v.cost == 99)
+    entry = cart_to_swiggy_items(Cart((ItemLine(burger, burger_only),)))[0]
+
+    assert entry["menu_item_id"] == "101196423"
+    assert "variantsV2" in entry          # NOT "variants"
+    assert "variants" not in entry
+    pairs = {(p["group_id"], p["variation_id"]) for p in entry["variantsV2"]}
+    assert ("75718135", "220969284") in pairs
+
+
+def test_variantsV2_optimizer_picks_cheapest_for_value(bk_variantsv2_search):
+    # The optimizer should be able to pick "Burger Only" (₹99) over the meals.
+    menu = parse_menu(_bk_menu_response(), search_responses=[bk_variantsv2_search])
+    result = best_cart(menu, User(), PricingConfig(delivery_fee=30, platform_fee=5, gst_rate=0.05), budget=200)
+    assert result.cart.lines
+    line = result.cart.lines[0]
+    assert line.variant.cost == 99   # cheapest variation chosen
+
+
+def test_legacy_variations_still_use_variants_field():
+    # Regression: Starbucks-style legacy variations must still emit "variants".
+    from cart_optimizer.adapters.swiggy_session import cart_to_swiggy_items
+    from cart_optimizer.models import Cart, ItemLine
+    menu = parse_menu(
+        {"restaurant": {"name": "Starbucks"}, "categories": [{"title": "c", "items": [
+            {"id": "97388430", "name": "Caffe Latte", "price": 295, "inStock": 1,
+             "rating": "4.4", "hasVariants": True}]}]},
+        search_responses=[load("starbucks_latte_search.json")],
+    )
+    latte = menu.items[0]
+    entry = cart_to_swiggy_items(Cart((ItemLine(latte, latte.variants[0]),)))[0]
+    assert "variants" in entry and "variantsV2" not in entry
+
+
 def test_hasVariants_without_search_data_raises():
     item = {"id": "1", "name": "x", "price": 50, "inStock": 1, "hasVariants": True}
-    with pytest.raises(SwiggyAdapterError, match="variation detail"):
+    with pytest.raises(SwiggyAdapterError, match="variant detail"):
         parse_menu({"restaurant": {"name": "r"}, "categories": [
             {"title": "c", "items": [item]}]})
 

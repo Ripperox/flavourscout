@@ -1,0 +1,38 @@
+{
+  "items": [
+    {
+      "name": "Crispy Chicken Burger",
+      "price": 99,
+      "menu_item_id": "101196423",
+      "inStock": 1,
+      "rating": "4.4",
+      "hasVariants": true,
+      "hasAddons": true,
+      "variantsV2": [
+        {
+          "groupId": "75718135",
+          "name": "Customized",
+          "variations": [
+            {"name": "Burger Only", "price": 99, "id": "220969284", "inStock": 1, "default": 1},
+            {"name": "Reg Meal- Fries(R)+Coke (36% OFF)", "price": 218, "id": "220969285", "inStock": 1},
+            {"name": "Shake Meal- Fries(R)+Shake (29% OFF)", "price": 297, "id": "220969286", "inStock": 1},
+            {"name": "4in1 Meal - Fries(R)+Coke+Sundae (36% OFF)", "price": 298, "id": "220969287", "inStock": 1}
+          ]
+        }
+      ],
+      "addons": [
+        {
+          "groupId": "293045137",
+          "groupName": "Tastes Best with Cheese",
+          "maxAddons": 1,
+          "choices": [
+            {"id": "147876989", "name": "Single Cheese Slice", "price": 25},
+            {"id": "147876991", "name": "Double Cheese Slice", "price": 50}
+          ]
+        }
+      ]
+    }
+  ],
+  "total": 1,
+  "query": "Crispy Chicken Burger"
+}

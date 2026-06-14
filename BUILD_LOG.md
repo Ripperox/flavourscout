@@ -331,6 +331,25 @@ tools were ever called.
   McD insight: SWIGGYIT (premium-gated) never wins — value items give more
   preference per rupee. Starbucks: drinks ₹295+ so even ₹500 fits ~1 drink.
 
+- [round 9 — variantsV2 + comprehensive coupon discovery] GREEN: 439 passed.
+  - variantsV2 IMPLEMENTED (was: raised). _flatten_variantsv2() normalizes the
+    nested shape to the flat variations form; _parse_variation_groups gained an
+    `encoding` arg ("v1"=legacy variations, increment prices / "v2"=variantsV2,
+    ABSOLUTE prices). Variant ids stamped var_v2@... so cart_to_swiggy_items
+    emits the variantsV2 cart field (vs variants for legacy). Confirmed LIVE:
+    BK Crispy Chicken built via variantsV2 → "Burger Only" ₹99, to_pay ₹127
+    (mandatory addon groups only bind to meal variations, not Burger Only).
+    Fixture: tests/fixtures/burgerking_variantsv2_search.json. 5 new tests.
+  - COUPON DISCOVERY confirmed: fetch_food_coupons returns {} EVEN WITH A CART
+    → unusable. Only sources: (1) the cart's auto-SUGGESTED coupon
+    (offers.coupon_applied, even at ₹0) and (2) blind-trying known codes.
+  - Verifier rewritten: build cart ONCE, probe suggested ∪ candidate list by
+    applying each in place (no rebuild) → ~half the calls. _suggested_coupon()
+    extracts the suggestion even at ₹0 discount and always tries it (so we never
+    miss Swiggy's own pick). DEFAULT_COUPON_CANDIDATES seed list; rebuild_per_
+    coupon=True opt-in safety mode. run.py._verify_one mirrors this; --coupons
+    defaults to the candidate list, suggestion always added on top.
+
 ## Status: FULL STACK COMPLETE ✅ + LIVE-VALIDATED on 4 restaurants
 
 Engine + live verifier + end-to-end runner on branch `cart-optimizer-engine`.

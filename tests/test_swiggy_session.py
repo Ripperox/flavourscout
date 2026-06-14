@@ -181,26 +181,72 @@ def test_verify_picks_lowest_to_pay_across_coupons():
     assert bill.coupon_code == "SWIGGYIT"
 
 
-def test_verify_flush_happens_between_coupon_attempts():
-    """Each coupon attempt: flush → update → apply → get_cart."""
+def test_verify_builds_once_and_applies_coupons_in_place():
+    """Fast path: ONE build, then apply each coupon to the same cart (no rebuild)."""
     menu = real_menu()
     cart = Cart((make_line(menu, "itm_109348830"),))
     mock = MockOps()
     base = _bill(239.0)
-    with_coupon = _bill(159.0, coupon="SWIGGYIT", discount=80)
-    mock.cart_responses = [base, with_coupon]
+    a = _bill(200.0, coupon="FLAT50", discount=50)
+    b = _bill(159.0, coupon="SWIGGYIT", discount=80)
+    mock.cart_responses = [base, a, b]
 
-    make_verifier(mock, coupon_codes=["SWIGGYIT"]).verify(cart)
+    make_verifier(mock, coupon_codes=["FLAT50", "SWIGGYIT"]).verify(cart)
 
     call_types = [c[0] for c in mock.calls]
-    # base: flush, update, get_cart
-    # coupon: flush, update, apply_coupon, get_cart
-    # cleanup: flush
+    # build once: flush, update, get_cart(base)
+    # coupon 1:   apply_coupon, get_cart
+    # coupon 2:   apply_coupon, get_cart
+    # cleanup:    flush
     assert call_types == [
         "flush", "update", "get_cart",
-        "flush", "update", "apply_coupon", "get_cart",
+        "apply_coupon", "get_cart",
+        "apply_coupon", "get_cart",
         "flush",
     ]
+    # Exactly one build (update) regardless of coupon count.
+    assert sum(1 for c in mock.calls if c[0] == "update") == 1
+
+
+def test_rebuild_per_coupon_flag_rebuilds():
+    """Opt-in safety mode: flush+update before each coupon."""
+    menu = real_menu()
+    cart = Cart((make_line(menu, "itm_109348830"),))
+    mock = MockOps()
+    mock.cart_responses = [_bill(239.0), _bill(159.0, coupon="SWIGGYIT", discount=80)]
+
+    SwiggySessionVerifier(
+        ops=mock.ops(), restaurant_id=RESTAURANT_ID, address_id=ADDRESS_ID,
+        coupon_codes=["SWIGGYIT"], rebuild_per_coupon=True,
+    ).verify(cart)
+
+    assert sum(1 for c in mock.calls if c[0] == "update") == 2  # base + per-coupon
+
+
+def test_suggested_coupon_is_auto_tried_even_if_not_in_list():
+    """The coupon Swiggy auto-suggests (discount 0) must be applied explicitly."""
+    menu = real_menu()
+    cart = Cart((make_line(menu, "itm_109348830"),))
+    mock = MockOps()
+    # Base bill suggests DUOJOY at ₹0 discount; applying it unlocks ₹80 off.
+    base = _bill(300.0, coupon="DUOJOY", discount=0)
+    applied = _bill(220.0, coupon="DUOJOY", discount=80)
+    mock.cart_responses = [base, applied]
+
+    # Empty candidate list — the suggested coupon must STILL be tried.
+    bill = make_verifier(mock, coupon_codes=[]).verify(cart)
+
+    assert bill.to_pay == 220.0
+    assert bill.coupon_code == "DUOJOY"
+    applied_codes = [c[1] for c in mock.calls if c[0] == "apply_coupon"]
+    assert applied_codes == ["DUOJOY"]
+
+
+def test_default_candidate_list_used_when_codes_omitted():
+    verifier = SwiggySessionVerifier(MockOps().ops(), RESTAURANT_ID, ADDRESS_ID)
+    assert "SWIGGYIT" in verifier.coupon_codes
+    assert "FLAT100" in verifier.coupon_codes
+    assert len(verifier.coupon_codes) >= 5
 
 
 def test_verify_correct_restaurant_and_address_passed():

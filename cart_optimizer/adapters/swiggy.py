@@ -168,9 +168,47 @@ def _variations_by_item_id(
     return detail
 
 
+def _variantsv2_by_item_id(
+    search_responses: Iterable[Mapping[str, Any]],
+) -> dict[str, list[Mapping[str, Any]]]:
+    """Extract variantsV2 arrays from search_menu responses, keyed by item id."""
+    detail: dict[str, list[Mapping[str, Any]]] = {}
+    for response in search_responses:
+        for item in response.get("items", []):
+            item_id = item.get("menu_item_id") or item.get("id")
+            if item_id is not None and item.get("variantsV2"):
+                detail[str(item_id)] = item["variantsV2"]
+    return detail
+
+
+def _flatten_variantsv2(variantsv2: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Flatten Swiggy's nested ``variantsV2`` into the flat ``variations`` shape.
+
+    variantsV2 groups variations under each group:
+        [{"groupId": G, "name": ..., "variations": [{"name","price","id",...}]}]
+    Legacy ``variations`` is flat with ``groupId`` on each entry. We normalize to
+    the flat form (copying the parent groupId onto each variation) so a single
+    parser handles both. The price field name also differs across captures
+    (``price`` is paise-or-rupee depending on endpoint) — we keep it as-is and
+    let the caller round."""
+    flat: list[dict[str, Any]] = []
+    for group in variantsv2:
+        if not isinstance(group, Mapping):
+            continue  # malformed / uncaptured shape — skip, caller handles emptiness
+        gid = group.get("groupId") or group.get("group_id")
+        for v in group.get("variations", []):
+            if not isinstance(v, Mapping):
+                continue
+            entry = dict(v)
+            entry["groupId"] = gid
+            flat.append(entry)
+    return flat
+
+
 def _parse_variation_groups(
     variations: list[Mapping[str, Any]],
     base_cost: int,
+    encoding: str = "v1",
 ) -> tuple[tuple[Variant, ...], tuple[AddonGroup, ...]]:
     """Parse Swiggy variations into Variants (primary group) + AddonGroups (secondary).
 
@@ -178,10 +216,14 @@ def _parse_variation_groups(
     The FIRST group encountered becomes real Variants; subsequent groups become
     optional AddonGroups (min_select=0 — the default is already priced in).
 
-    Variant IDs encode ALL required group selections so cart_to_swiggy_items
-    can reconstruct the [{group_id, variation_id}] pairs:
-        var_{g1}:{v1}|{g2_default}:{v2_default}|...
+    ``encoding`` is ``"v1"`` for legacy ``variations`` (cart-built via the
+    ``variants`` field) or ``"v2"`` for ``variantsV2`` (cart-built via the
+    ``variantsV2`` field). It is stamped into the variant id so
+    cart_to_swiggy_items emits the right field:
+        v1 → var_{g1}:{v1}|{g2_default}:{v2_default}|...
+        v2 → var_v2@{g1}:{v1}|...
     """
+    id_prefix = "v2@" if encoding == "v2" else ""
     # Group variations by groupId, preserving first-appearance order.
     groups: dict[str, list[Mapping[str, Any]]] = {}
     for v in variations:
@@ -218,14 +260,20 @@ def _parse_variation_groups(
         vid = str(v.get("id", ""))
         if not vid:
             continue
-        encoded = f"{primary_gid}:{vid}"
+        encoded = f"{id_prefix}{primary_gid}:{vid}"
         for sec_gid, sec_vid in secondary_defaults:
             encoded += f"|{sec_gid}:{sec_vid}"
-        incremental = round(float(v.get("price") or 0))
+        price_val = round(float(v.get("price") or 0))
+        # v1 (legacy variations): price is an INCREMENT over base (Starbucks TALL = +35).
+        # v2 (variantsV2): price is the ABSOLUTE item price (BK "Burger Only" = 99).
+        if encoding == "v2":
+            cost = price_val if price_val > 0 else base_cost
+        else:
+            cost = base_cost + price_val
         variants.append(Variant(
             id=f"var_{encoded}",
             name=str(v.get("name", vid)),
-            cost=base_cost + incremental,
+            cost=cost,
         ))
 
     if not variants:
@@ -268,31 +316,37 @@ def _parse_item(
     raw: Mapping[str, Any],
     addons_by_id: Mapping[str, list[Mapping[str, Any]]],
     variations_by_id: Mapping[str, list[Mapping[str, Any]]],
+    variantsv2_by_id: Mapping[str, list[Mapping[str, Any]]] = {},
 ) -> Item:
     try:
         raw_id = str(raw["id"])
     except (KeyError, TypeError):
         raise SwiggyAdapterError(f"menu item missing id: {raw!r}") from None
 
-    if raw.get("variantsV2"):
-        raise SwiggyAdapterError(
-            f"item {raw_id}: variantsV2 shape not yet captured from live data"
-        )
-
     base_cost = _round_price(raw.get("price"), f"item {raw_id}")
     addon_detail = addons_by_id.get(raw_id, [])
 
-    # Variant item: parse size/milk groups from search_menu variations data.
-    if raw.get("hasVariants") or raw.get("variations"):
-        variation_detail = list(variations_by_id.get(raw_id) or raw.get("variations") or [])
-        if not variation_detail:
+    # Resolve variant detail: prefer variantsV2 (BK/newer), else legacy variations
+    # (Starbucks). Detail comes from search_menu (merged in by id) or, for tests,
+    # inline on the item itself.
+    v2_detail = list(variantsv2_by_id.get(raw_id) or raw.get("variantsV2") or [])
+    v1_detail = list(variations_by_id.get(raw_id) or raw.get("variations") or [])
+
+    if v2_detail or v1_detail or raw.get("hasVariants"):
+        if v2_detail:
+            flat = _flatten_variantsv2(v2_detail)
+            encoding = "v2"
+        elif v1_detail:
+            flat = v1_detail
+            encoding = "v1"
+        else:
             raise SwiggyAdapterError(
-                f"item {raw_id}: hasVariants=true but no variation detail found — "
+                f"item {raw_id}: hasVariants=true but no variant detail found — "
                 "pass a search_menu response that includes this item to parse_menu()"
             )
         try:
             parsed_variants, variant_addon_groups = _parse_variation_groups(
-                variation_detail, base_cost
+                flat, base_cost, encoding=encoding
             )
         except (SwiggyAdapterError, MenuError) as exc:
             raise SwiggyAdapterError(f"item {raw_id}: {exc}") from exc
@@ -346,6 +400,7 @@ def parse_menu(
     search_list = list(search_responses)
     addons_by_id = _addons_by_item_id(search_list)
     variations_by_id = _variations_by_item_id(search_list)
+    variantsv2_by_id = _variantsv2_by_item_id(search_list)
 
     items: list[Item] = []
     seen: set[str] = set()
@@ -357,7 +412,7 @@ def parse_menu(
                 continue
             seen.add(str(raw_id))
             try:
-                items.append(_parse_item(raw, addons_by_id, variations_by_id))
+                items.append(_parse_item(raw, addons_by_id, variations_by_id, variantsv2_by_id))
             except SwiggyAdapterError as exc:
                 if not skip_unparseable:
                     raise

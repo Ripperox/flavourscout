@@ -72,42 +72,44 @@ async def _verify_one(
 ) -> "CartBill":  # noqa: F821
     """Verify one candidate cart against Swiggy's live bill.
 
-    For each coupon: flush → rebuild → apply → read bill. Returns the bill
-    with the lowest to_pay across no-coupon and all coupon attempts.
+    Build the cart ONCE, then probe the auto-SUGGESTED coupon ∪ the candidate
+    list by applying each in place (no rebuild → far fewer calls). Returns the
+    bill with the lowest to_pay across no-coupon and all coupon attempts.
     """
     from .adapters.swiggy import CartBill
+    from .adapters.swiggy_session import _suggested_coupon
 
     cart_items = cart_to_swiggy_items(cart)
     bills: list[CartBill] = []
 
-    async def build() -> None:
-        await client.call("flush_food_cart")
-        await client.call(
-            "update_food_cart",
-            restaurantId=restaurant_id,
-            restaurantName=restaurant_name,
-            addressId=address_id,
-            cartItems=cart_items,
+    async def get_raw() -> dict:
+        return await client.call(
+            "get_food_cart", addressId=address_id, restaurantName=restaurant_name
         )
 
-    async def read_bill() -> CartBill:
-        raw = await client.call(
-            "get_food_cart",
-            addressId=address_id,
-            restaurantName=restaurant_name,
-        )
-        return parse_cart_bill(raw)
+    # Build once → base bill + the coupon Swiggy auto-suggests for this cart.
+    await client.call("flush_food_cart")
+    await client.call(
+        "update_food_cart",
+        restaurantId=restaurant_id,
+        restaurantName=restaurant_name,
+        addressId=address_id,
+        cartItems=cart_items,
+    )
+    raw = await get_raw()
+    bills.append(parse_cart_bill(raw))
+    suggested = _suggested_coupon(raw)
 
-    # Base bill (no coupon).
-    await build()
-    bills.append(await read_bill())
+    # suggested first, then candidates (deduped, order-preserving).
+    codes: list[str] = []
+    for c in ([suggested] if suggested else []) + list(coupons):
+        if c and c not in codes:
+            codes.append(c)
 
-    # Try each coupon on a fresh cart copy.
-    for code in coupons:
+    for code in codes:
         try:
-            await build()
             await client.call("apply_food_coupon", couponCode=code, addressId=address_id)
-            bills.append(await read_bill())
+            bills.append(parse_cart_bill(await get_raw()))
         except (SwiggyClientError, SwiggyAdapterError, Exception):
             pass  # rejected or error — skip
 
@@ -301,15 +303,18 @@ def main() -> None:
     parser.add_argument("--restaurant", required=True, help="Swiggy restaurant id (e.g. 668678)")
     parser.add_argument("--address", default=None, help="Swiggy address id (default: first saved)")
     parser.add_argument(
-        "--coupons", nargs="*", default=["SWIGGYIT"],
-        help="Coupon codes to try per cart (default: SWIGGYIT)"
+        "--coupons", nargs="*", default=None,
+        help="Coupon codes to try per cart (default: built-in candidate list; "
+             "the cart's auto-suggested coupon is ALWAYS tried on top)"
     )
     args = parser.parse_args()
+    from .adapters.swiggy_session import DEFAULT_COUPON_CANDIDATES
+    coupons = args.coupons if args.coupons is not None else list(DEFAULT_COUPON_CANDIDATES)
     asyncio.run(run(
         budget=args.budget,
         restaurant_id=args.restaurant,
         address_id=args.address,
-        coupons=args.coupons,
+        coupons=coupons,
     ))
 
 
