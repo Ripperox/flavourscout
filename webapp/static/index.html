@@ -2,225 +2,385 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Cart Optimizer — best-value Swiggy cart</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Cartographer — the best-value Swiggy cart for your budget</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#0f1115; --card:#181b22; --line:#262b36; --fg:#e8eaed; --mut:#9aa3b2;
-          --accent:#fc8019; --good:#2fbf71; }
-  * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-         background:var(--bg); color:var(--fg); }
-  .wrap { max-width:680px; margin:0 auto; padding:28px 18px 60px; }
-  h1 { font-size:24px; margin:0 0 2px; }
-  .sub { color:var(--mut); margin:0 0 22px; font-size:14px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
-          padding:18px; margin-bottom:16px; }
-  label { display:block; font-size:13px; color:var(--mut); margin:0 0 6px; }
-  input, select { width:100%; padding:11px 12px; background:#0f1218; color:var(--fg);
-          border:1px solid var(--line); border-radius:10px; font-size:15px; }
-  button { background:var(--accent); color:#1a1206; border:0; border-radius:10px;
-           padding:12px 16px; font-size:15px; font-weight:600; cursor:pointer; width:100%; }
-  button.secondary { background:#222733; color:var(--fg); }
-  button:disabled { opacity:.5; cursor:default; }
-  .row { display:flex; gap:10px; }
-  .row > * { flex:1; }
-  .hidden { display:none; }
-  .muted { color:var(--mut); font-size:13px; }
-  .rest { border:1px solid var(--line); border-radius:10px; padding:11px 12px; margin-top:8px;
-          cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
-  .rest:hover { border-color:var(--accent); }
-  .rest small { color:var(--mut); display:block; }
-  .pill { background:#20262f; border:1px solid var(--line); border-radius:999px;
-          padding:3px 10px; font-size:12px; color:var(--mut); margin:2px 4px 2px 0; display:inline-block; }
-  .topay { font-size:30px; font-weight:700; }
-  .save { color:var(--good); font-weight:600; }
-  .lineitem { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); }
-  .spin { color:var(--accent); }
-  a { color:var(--accent); }
-  .err { color:#ff6b6b; font-size:13px; }
+:root{
+  --paper:#F4ECDD; --paper-2:#FAF4E9; --card:#FBF6EC;
+  --ink:#1D1712; --ink-2:#5C5046; --line:#E4D8C4; --line-2:#D8C9B0;
+  --flame:#E8401F; --flame-deep:#BE3217; --leaf:#247A4A; --gold:#D89200;
+  --shadow:0 1px 0 rgba(0,0,0,.04), 0 18px 40px -22px rgba(60,40,20,.45);
+  --radius:18px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Hanken Grotesk",system-ui,sans-serif; font-size:16px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+/* warm atmosphere + grain */
+body::before{
+  content:""; position:fixed; inset:0; z-index:-2; pointer-events:none;
+  background:
+    radial-gradient(120% 80% at 85% -10%, rgba(232,64,31,.14), transparent 55%),
+    radial-gradient(90% 70% at -10% 110%, rgba(36,122,74,.10), transparent 55%);
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+}
+.wrap{max-width:720px;margin:0 auto;padding:22px 20px 80px}
+.hidden{display:none!important}
+.spin{color:var(--flame)}
+.err{color:var(--flame-deep);font-size:13px}
+.muted{color:var(--ink-2)}
+button{font-family:inherit;cursor:pointer;border:0}
+input,select{font-family:inherit}
+
+/* ---- header ---- */
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.brand{display:flex;align-items:center;gap:11px;font-family:"Fraunces",serif;font-weight:900;
+  font-size:22px;letter-spacing:-.02em}
+.mark{width:34px;height:34px;border-radius:10px;background:var(--ink);color:var(--paper-2);
+  display:grid;place-items:center;font-size:19px;transform:rotate(-6deg);box-shadow:var(--shadow)}
+.loc-pill{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;max-width:55vw}
+.loc-pill b{font-weight:700}
+.loc-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--leaf);flex:0 0 auto}
+.linkbtn{background:none;color:var(--ink-2);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+
+/* ---- hero (logged out) ---- */
+.hero{padding:34px 0 10px;animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--flame)}
+.hero h1{font-family:"Fraunces",serif;font-weight:900;letter-spacing:-.03em;line-height:.98;
+  font-size:clamp(40px,9vw,68px);margin:.18em 0 .12em}
+.hero h1 em{font-style:italic;color:var(--flame)}
+.hero p{font-size:17px;color:var(--ink-2);max-width:30em;margin:0 0 26px}
+.cta{display:inline-flex;align-items:center;gap:10px;background:var(--flame);color:#fff;
+  font-weight:700;font-size:16px;padding:15px 26px;border-radius:14px;box-shadow:var(--shadow);
+  transition:transform .15s ease, box-shadow .2s ease}
+.cta:hover{transform:translateY(-2px) rotate(-.4deg)}
+.cta:active{transform:translateY(0)}
+.tiny{font-size:12.5px;color:var(--ink-2);margin-top:14px}
+.marquee{margin-top:40px;border-top:1px dashed var(--line-2);border-bottom:1px dashed var(--line-2);
+  padding:14px 0;overflow:hidden;white-space:nowrap;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.marquee span{display:inline-block;animation:slide 22s linear infinite;font-family:"Fraunces",serif;
+  font-weight:600;font-size:15px;color:var(--ink-2)}
+.marquee span i{font-style:normal;color:var(--flame);margin:0 18px}
+
+/* ---- cards / panels ---- */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px;margin-bottom:16px;box-shadow:var(--shadow);animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin:0 0 11px}
+.field{display:flex;gap:10px}
+.field>*{flex:1}
+select,input[type=text]{width:100%;padding:13px 14px;background:var(--paper-2);color:var(--ink);
+  border:1px solid var(--line-2);border-radius:12px;font-size:15px;font-weight:500;outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease}
+select:focus,input[type=text]:focus{border-color:var(--flame);box-shadow:0 0 0 3px rgba(232,64,31,.13)}
+.btn{background:var(--ink);color:var(--paper-2);font-weight:700;padding:13px 16px;border-radius:12px;
+  transition:transform .12s ease,filter .2s ease;white-space:nowrap}
+.btn:hover{filter:brightness(1.12)}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:var(--paper-2);color:var(--ink);border:1px solid var(--line-2)}
+.btn:disabled{opacity:.5;cursor:default}
+.geo{font-size:13px;color:var(--ink-2);margin:10px 2px 0;min-height:1.2em}
+
+/* ---- restaurant cards ---- */
+.rgrid{display:grid;gap:10px}
+.rest{display:flex;align-items:center;gap:14px;text-align:left;width:100%;
+  background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:13px 14px;
+  transition:transform .14s ease,border-color .15s ease,box-shadow .2s ease}
+.rest:hover{transform:translateY(-2px);border-color:var(--flame);box-shadow:var(--shadow)}
+.rest .ava{width:42px;height:42px;border-radius:12px;flex:0 0 auto;display:grid;place-items:center;
+  font-family:"Fraunces",serif;font-weight:900;font-size:18px;color:#fff;background:var(--flame)}
+.rest .meta{flex:1;min-width:0}
+.rest .name{font-weight:700;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rest .sub{font-size:12.5px;color:var(--ink-2);display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.star{color:var(--gold);font-weight:700}
+.offer{font-size:11px;font-weight:700;color:var(--leaf);background:rgba(36,122,74,.10);
+  border:1px solid rgba(36,122,74,.25);padding:2px 8px;border-radius:999px}
+.chev{color:var(--line-2);font-size:20px;flex:0 0 auto}
+
+/* ---- budget ---- */
+.budget-head{display:flex;align-items:baseline;justify-content:space-between}
+.budget-val{font-family:"Fraunces",serif;font-weight:900;font-size:34px;letter-spacing:-.02em}
+.presets{display:flex;gap:8px;margin:14px 0}
+.preset{flex:1;background:var(--paper-2);border:1px solid var(--line-2);border-radius:11px;
+  padding:9px 0;font-weight:700;font-size:14px;color:var(--ink-2);transition:.15s}
+.preset.on{background:var(--ink);color:var(--paper-2);border-color:var(--ink)}
+input[type=range]{-webkit-appearance:none;width:100%;height:6px;border-radius:99px;
+  background:linear-gradient(90deg,var(--flame) var(--pct,40%),var(--line-2) var(--pct,40%));outline:none;margin:6px 0 16px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;
+  background:var(--flame);border:3px solid var(--paper-2);box-shadow:var(--shadow);cursor:grab}
+.find{width:100%;background:var(--flame);color:#fff;font-weight:700;font-size:16px;padding:16px;
+  border-radius:14px;box-shadow:var(--shadow);transition:transform .12s ease,filter .2s}
+.find:hover{filter:brightness(1.05);transform:translateY(-1px)}
+.find:disabled{opacity:.65;transform:none}
+
+/* ---- loading ---- */
+.hunt{text-align:center;padding:30px 10px}
+.radar{width:64px;height:64px;margin:0 auto 18px;border-radius:50%;border:3px solid var(--line-2);
+  border-top-color:var(--flame);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hunt .msg{font-family:"Fraunces",serif;font-weight:600;font-size:19px;min-height:1.4em;transition:opacity .3s}
+.hunt .sub{font-size:13px;color:var(--ink-2);margin-top:6px}
+
+/* ---- receipt ---- */
+.receipt{position:relative;background:var(--paper-2);color:var(--ink);border:1px solid var(--line);
+  padding:26px 24px 22px;box-shadow:var(--shadow);font-family:"JetBrains Mono",monospace;
+  animation:print .6s cubic-bezier(.2,.8,.2,1) both}
+.receipt::before,.receipt::after{content:"";position:absolute;left:0;right:0;height:10px;
+  background:radial-gradient(circle at 6px -2px, transparent 6px, var(--paper-2) 7px) repeat-x;
+  background-size:16px 10px}
+.receipt::before{top:-9px;transform:rotate(180deg)}
+.receipt::after{bottom:-9px}
+.rc-top{text-align:center;border-bottom:1.5px dashed var(--line-2);padding-bottom:14px;margin-bottom:14px}
+.rc-kicker{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--flame);font-weight:700}
+.rc-rest{font-family:"Fraunces",serif;font-weight:900;font-size:24px;margin-top:4px;letter-spacing:-.01em}
+.rc-line{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:5px 0}
+.rc-line .q{color:var(--flame);font-weight:700}
+.rc-sep{border-top:1.5px dashed var(--line-2);margin:12px 0}
+.rc-fin{font-size:13.5px;color:var(--ink-2)}
+.rc-fin .v{color:var(--ink);font-weight:500}
+.rc-fin .save{color:var(--leaf);font-weight:700}
+.rc-total{display:flex;align-items:baseline;justify-content:space-between;margin-top:10px;
+  padding-top:12px;border-top:2px solid var(--ink)}
+.rc-total .k{font-weight:700;letter-spacing:.04em}
+.rc-total .amt{font-family:"Fraunces",serif;font-weight:900;font-size:40px;letter-spacing:-.02em}
+.rc-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.tag{font-size:11px;font-family:"Hanken Grotesk";font-weight:600;background:var(--paper);
+  border:1px solid var(--line-2);border-radius:999px;padding:3px 10px;color:var(--ink-2)}
+.tag.good{color:var(--leaf);border-color:rgba(36,122,74,.3)}
+.rc-foot{font-family:"Hanken Grotesk";font-size:12px;color:var(--ink-2);margin-top:16px;text-align:center;line-height:1.6}
+.barcode{height:34px;margin:16px 0 4px;background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 2px 4px,var(--ink) 4px 5px,transparent 5px 9px);opacity:.85}
+
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes print{from{opacity:0;transform:translateY(-10px) scaleY(.96);transform-origin:top}to{opacity:1;transform:none}}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.delay1{animation-delay:.06s}.delay2{animation-delay:.12s}.delay3{animation-delay:.18s}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🛒 Cart Optimizer</h1>
-  <p class="sub">Log in with Swiggy, set a budget, get the best-value cart — coupons found automatically and shared across everyone.</p>
 
-  <!-- Logged out -->
-  <div id="login" class="card hidden">
-    <p>Connect your Swiggy account to begin.</p>
-    <button onclick="location.href='/login'">Login with Swiggy</button>
-    <p class="muted" style="margin-top:10px">Read-only browsing + cart building only. An order is <b>never</b> placed automatically.</p>
-  </div>
+  <header id="hdr" class="hidden">
+    <div class="brand"><span class="mark">◓</span> Cartographer</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="locPill" class="loc-pill hidden"><span class="dot"></span><b id="locText">—</b></span>
+      <button class="linkbtn" onclick="logout()">Log out</button>
+    </div>
+  </header>
 
-  <!-- Logged in -->
-  <div id="app" class="hidden">
-    <div class="card">
-      <label>Deliver to</label>
-      <div class="row">
-        <select id="address" onchange="loadNearby()"></select>
-        <button class="secondary" style="flex:0 0 170px" onclick="useMyLocation()">📍 Use my location</button>
+  <!-- LOGGED OUT -->
+  <section id="login" class="hidden">
+    <div class="hero">
+      <div class="eyebrow">Best value, found for you</div>
+      <h1>Eat better<br>for <em>exactly</em><br>your budget.</h1>
+      <p>Tell us a number. We build carts on your Swiggy, hunt every coupon that could apply, and hand you the highest-value order that lands just under budget — coupons auto-discovered, never typed.</p>
+      <a class="cta" href="/login">Connect Swiggy →</a>
+      <div class="tiny">Read-only browsing + cart building. We <b>never</b> place an order for you.</div>
+      <div class="marquee"><span>
+        McDonald's <i>·</i> Burger King <i>·</i> Starbucks <i>·</i> Taco Bell <i>·</i> KFC <i>·</i> Domino's <i>·</i>
+        McDonald's <i>·</i> Burger King <i>·</i> Starbucks <i>·</i> Taco Bell <i>·</i> KFC <i>·</i> Domino's <i>·</i>
+      </span></div>
+    </div>
+  </section>
+
+  <!-- LOGGED IN -->
+  <section id="app" class="hidden">
+
+    <div class="panel">
+      <p class="label">Deliver to</p>
+      <div class="field">
+        <select id="address" onchange="onAddrChange()"></select>
+        <button class="btn ghost" style="flex:0 0 auto" onclick="useMyLocation()">📍 Locate me</button>
       </div>
-      <p id="geo" class="muted" style="margin:8px 0 0"></p>
+      <p id="geo" class="geo"></p>
     </div>
 
-    <div id="nearbyCard" class="card hidden">
-      <label>Restaurants near you</label>
-      <div id="nearby"><p class="muted spin">Finding nearby restaurants…</p></div>
-    </div>
-
-    <div class="card">
-      <label>Or search by name</label>
-      <div class="row">
-        <input id="q" placeholder="e.g. KFC, Domino's" />
-        <button class="secondary" style="flex:0 0 90px" onclick="search()">Search</button>
+    <div id="nearbyPanel" class="panel hidden">
+      <p class="label">Restaurants near you</p>
+      <div id="nearby" class="rgrid"></div>
+      <div style="margin-top:14px">
+        <p class="label">Or search by name</p>
+        <div class="field">
+          <input id="q" type="text" placeholder="KFC, Domino's, …" onkeydown="if(event.key==='Enter')search()"/>
+          <button class="btn" style="flex:0 0 auto" onclick="search()">Search</button>
+        </div>
+        <div id="results" class="rgrid" style="margin-top:10px"></div>
       </div>
-      <div id="results"></div>
     </div>
 
-    <div id="budgetCard" class="card hidden">
-      <label>Budget (₹) at <span id="chosenName"></span></label>
-      <div class="row">
-        <input id="budget" type="number" value="400" min="50" step="50" />
-        <button style="flex:0 0 140px" id="goBtn" onclick="optimize()">Find best cart</button>
+    <div id="budgetPanel" class="panel hidden">
+      <div class="budget-head">
+        <p class="label" style="margin:0">Budget at <span id="chosenName" style="color:var(--flame)"></span></p>
+        <div class="budget-val">₹<span id="budgetVal">400</span></div>
       </div>
-      <p id="status" class="muted" style="margin:10px 0 0"></p>
+      <div class="presets">
+        <button class="preset" data-v="200">₹200</button>
+        <button class="preset on" data-v="400">₹400</button>
+        <button class="preset" data-v="600">₹600</button>
+        <button class="preset" data-v="800">₹800</button>
+      </div>
+      <input id="budget" type="range" min="100" max="1000" step="20" value="400" oninput="onBudgetSlide()"/>
+      <button id="goBtn" class="find" onclick="optimize()">Find my best cart →</button>
     </div>
 
-    <div id="result" class="card hidden"></div>
+    <div id="result"></div>
+  </section>
 
-    <p class="muted"><a href="#" onclick="logout();return false">Log out</a></p>
-  </div>
 </div>
 
 <script>
-let chosen = null;       // {id, name}
-const $ = (id) => document.getElementById(id);
+const $ = (id)=>document.getElementById(id);
+let addrCache=[], chosen=null, huntTimer=null;
 
-async function boot() {
-  const me = await fetch('/api/me').then(r => r.json());
-  if (me.logged_in) { $('app').classList.remove('hidden'); loadAddresses(); }
+async function boot(){
+  const me = await fetch('/api/me').then(r=>r.json()).catch(()=>({logged_in:false}));
+  if(me.logged_in){ $('hdr').classList.remove('hidden'); $('app').classList.remove('hidden'); loadAddresses(); }
   else { $('login').classList.remove('hidden'); }
 }
 
-let addrCache = [];
+async function loadAddresses(){
+  try{
+    addrCache = await fetch('/api/addresses').then(r=>r.json());
+  }catch(e){ addrCache=[]; }
+  $('address').innerHTML = addrCache.map(x=>`<option value="${x.id}">${esc(x.label)} — ${esc(x.line)}</option>`).join('');
+  if(addrCache.length){ updateLocPill(); loadNearby(); }
+}
+function updateLocPill(){
+  const a = addrCache.find(x=>x.id===$('address').value);
+  if(a){ $('locPill').classList.remove('hidden'); $('locText').textContent = a.label; }
+}
+function onAddrChange(){ updateLocPill(); loadNearby(); }
 
-async function loadAddresses() {
-  addrCache = await fetch('/api/addresses').then(r => r.json());
-  $('address').innerHTML = addrCache
-    .map(x => `<option value="${x.id}">${x.label} — ${x.line}</option>`).join('');
-  if (addrCache.length) loadNearby();    // auto-show nearby for the default address
+function avatar(name){ return (name||'?').replace(/[^A-Za-z]/g,'').slice(0,1).toUpperCase()||'•'; }
+function restCard(r){
+  const dist = (r.distanceKm!=null)?`${r.distanceKm} km`:'';
+  const bits = [dist, r.rating?`<span class="star">★ ${r.rating}</span>`:'', r.etaMins?`${r.etaMins} min`:''].filter(Boolean).join(' · ');
+  return `<button class="rest" onclick='pick(${attr({id:r.id,name:r.name})})'>
+    <span class="ava">${avatar(r.name)}</span>
+    <span class="meta"><span class="name">${esc(r.name)}</span><span class="sub">${bits}</span></span>
+    ${r.offer?`<span class="offer">${esc(r.offer)}</span>`:''}<span class="chev">›</span>
+  </button>`;
 }
 
-function restaurantRow(r) {
-  const dist = (r.distanceKm != null) ? `${r.distanceKm} km · ` : '';
-  return `
-    <div class="rest" onclick='pick(${JSON.stringify(JSON.stringify({id:r.id,name:r.name}))})'>
-      <div><b>${r.name}</b><small>${dist}${r.area || ''} · ★${r.rating ?? '–'} · ${r.etaMins ?? '–'} min</small></div>
-      <div class="muted">${r.offer || ''} ›</div>
-    </div>`;
+async function loadNearby(){
+  const id=$('address').value; if(!id) return;
+  $('nearbyPanel').classList.remove('hidden');
+  $('nearby').innerHTML = `<p class="muted spin">Finding nearby restaurants…</p>`;
+  try{
+    const rs = await fetch(`/api/nearby?addressId=${id}`).then(r=>r.json());
+    $('nearby').innerHTML = rs.length ? rs.map(restCard).join('') : `<p class="muted">No supported restaurants deliver here right now.</p>`;
+  }catch(e){ $('nearby').innerHTML = `<p class="err">Couldn’t load nearby (${e}).</p>`; }
 }
 
-async function loadNearby() {
-  const addressId = $('address').value; if (!addressId) return;
-  $('nearbyCard').classList.remove('hidden');
-  $('nearby').innerHTML = '<p class="muted spin">Finding nearby restaurants…</p>';
-  try {
-    const rs = await fetch(`/api/nearby?addressId=${addressId}`).then(r => r.json());
-    $('nearby').innerHTML = rs.length
-      ? rs.map(restaurantRow).join('')
-      : '<p class="muted">No supported restaurants deliver here right now.</p>';
-  } catch (e) { $('nearby').innerHTML = '<p class="err">Could not load nearby: ' + e + '</p>'; }
+async function search(){
+  const q=$('q').value.trim(); if(!q) return; const id=$('address').value;
+  $('results').innerHTML = `<p class="muted spin">Searching…</p>`;
+  try{
+    const rs = await fetch(`/api/restaurants?q=${encodeURIComponent(q)}&addressId=${id}`).then(r=>r.json());
+    $('results').innerHTML = rs.length ? rs.map(restCard).join('') : `<p class="muted">No open restaurants found.</p>`;
+  }catch(e){ $('results').innerHTML = `<p class="err">${e}</p>`; }
 }
 
-// Detect location → reverse-geocode for display → auto-pick the closest-matching
-// saved Swiggy address (delivery is address-based, so we map GPS onto a saved one).
-function useMyLocation() {
-  if (!navigator.geolocation) { $('geo').textContent = 'Geolocation not supported by this browser.'; return; }
-  $('geo').innerHTML = '<span class="spin">Detecting your location…</span>';
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    const { latitude, longitude } = pos.coords;
-    let locality = '';
-    try {
-      const g = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`).then(r => r.json());
-      locality = g.locality || g.city || g.principalSubdivision || '';
-    } catch (e) { /* reverse-geocode is best-effort */ }
-
-    // Try to match a saved address by locality text.
-    let matched = null;
-    if (locality) {
-      const lo = locality.toLowerCase();
-      matched = addrCache.find(a => (a.line || '').toLowerCase().includes(lo)
-                                 || (a.label || '').toLowerCase().includes(lo));
-    }
-    if (matched) {
-      $('address').value = matched.id;
-      $('geo').innerHTML = `📍 Detected <b>${locality}</b> → using saved address “${matched.label}”.`;
-    } else {
-      $('geo').innerHTML = locality
-        ? `📍 Detected <b>${locality}</b> — no saved Swiggy address there, using “${addrCache[0]?.label||'first'}”. (Swiggy delivers to saved addresses only.)`
-        : `📍 Location detected — using your saved address.`;
-    }
+function useMyLocation(){
+  if(!navigator.geolocation){ $('geo').textContent='Geolocation not supported here.'; return; }
+  $('geo').innerHTML = `<span class="spin">Detecting your location…</span>`;
+  navigator.geolocation.getCurrentPosition(async (pos)=>{
+    const {latitude,longitude}=pos.coords; let loc='';
+    try{ const g=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`).then(r=>r.json());
+      loc=g.locality||g.city||g.principalSubdivision||''; }catch(e){}
+    let m=null;
+    if(loc){ const lo=loc.toLowerCase(); m=addrCache.find(a=>(a.line||'').toLowerCase().includes(lo)||(a.label||'').toLowerCase().includes(lo)); }
+    if(m){ $('address').value=m.id; updateLocPill(); $('geo').innerHTML=`📍 Detected <b>${esc(loc)}</b> → using saved address “${esc(m.label)}”.`; }
+    else { $('geo').innerHTML = loc?`📍 Detected <b>${esc(loc)}</b> — no saved Swiggy address there, using “${esc(addrCache[0]?.label||'first')}”.`:`📍 Location detected — using your saved address.`; }
     loadNearby();
-  }, (err) => {
-    $('geo').innerHTML = `<span class="err">Couldn’t get location (${err.message}).</span> Pick an address above instead.`;
-  }, { enableHighAccuracy: true, timeout: 10000 });
+  }, (err)=>{ $('geo').innerHTML=`<span class="err">Couldn’t get location (${esc(err.message)}).</span>`; }, {enableHighAccuracy:true,timeout:10000});
 }
 
-async function search() {
-  const q = $('q').value.trim(); if (!q) return;
-  const addressId = $('address').value;
-  $('results').innerHTML = '<p class="muted spin">Searching…</p>';
-  const rs = await fetch(`/api/restaurants?q=${encodeURIComponent(q)}&addressId=${addressId}`)
-                    .then(r => r.json());
-  $('results').innerHTML = rs.length
-    ? rs.map(restaurantRow).join('')
-    : '<p class="muted">No open restaurants found.</p>';
-}
-
-function pick(s) {
-  chosen = JSON.parse(s);
+function pick(s){
+  chosen = (typeof s==='string')?JSON.parse(s):s;
   $('chosenName').textContent = chosen.name;
-  $('budgetCard').classList.remove('hidden');
-  $('result').classList.add('hidden');
-  $('budgetCard').scrollIntoView({behavior:'smooth'});
+  $('budgetPanel').classList.remove('hidden');
+  $('result').innerHTML='';
+  $('budgetPanel').scrollIntoView({behavior:'smooth',block:'center'});
 }
 
-async function optimize() {
-  if (!chosen) return;
-  $('goBtn').disabled = true;
-  $('status').innerHTML = '<span class="spin">Building & pricing carts live on Swiggy… (10–40s — trying coupons)</span>';
-  $('result').classList.add('hidden');
-  try {
-    const res = await fetch('/api/optimize', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ restaurantId: chosen.id, restaurantName: chosen.name,
-                             addressId: $('address').value, budget: Number($('budget').value) })
-    }).then(r => r.json());
-    render(res);
-  } catch (e) {
-    $('status').innerHTML = '<span class="err">Something went wrong: ' + e + '</span>';
-  } finally { $('goBtn').disabled = false; }
+/* budget controls */
+const HUNT_MSGS=[
+  ["Reading the menu…","picking dishes worth your money"],
+  ["Building carts on Swiggy…","trying different combinations"],
+  ["Hunting coupons…","only the ones that can actually win"],
+  ["Reading the real bill…","Swiggy's authoritative price"],
+  ["Filling your budget…","getting it just under the line"],
+];
+function onBudgetSlide(){
+  const v=+$('budget').value; $('budgetVal').textContent=v;
+  $('budget').style.setProperty('--pct', ((v-100)/900*100)+'%');
+  document.querySelectorAll('.preset').forEach(p=>p.classList.toggle('on',+p.dataset.v===v));
+}
+document.querySelectorAll('.preset').forEach(p=>p.onclick=()=>{ $('budget').value=p.dataset.v; onBudgetSlide(); });
+onBudgetSlide();
+
+async function optimize(){
+  if(!chosen) return;
+  $('goBtn').disabled=true;
+  let i=0; const r=$('result');
+  const paint=()=>{ const m=HUNT_MSGS[i%HUNT_MSGS.length];
+    r.innerHTML=`<div class="panel hunt"><div class="radar"></div><div class="msg">${m[0]}</div><div class="sub">${m[1]}</div></div>`; i++; };
+  paint(); huntTimer=setInterval(paint,2600);
+  r.scrollIntoView({behavior:'smooth',block:'center'});
+  try{
+    const res = await fetch('/api/optimize',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({restaurantId:chosen.id,restaurantName:chosen.name,addressId:$('address').value,budget:+$('budget').value})}).then(r=>r.json());
+    clearInterval(huntTimer); render(res);
+  }catch(e){ clearInterval(huntTimer); r.innerHTML=`<div class="panel"><p class="err">Something went wrong: ${esc(String(e))}</p></div>`; }
+  finally{ $('goBtn').disabled=false; }
 }
 
-function render(res) {
-  $('status').textContent = '';
-  const el = $('result'); el.classList.remove('hidden');
-  if (!res.found) { el.innerHTML = `<p class="muted">${res.message}</p>`; return; }
-  const b = res.bill;
-  const items = res.items.map(i => `<div class="lineitem"><span>${i.qty}× ${i.name}</span><span>₹${i.cost}</span></div>`).join('');
-  const coupon = b.coupon ? `<span class="save">${b.coupon} −₹${Math.round(b.coupon_discount)}</span>` : '<span class="muted">no coupon helped</span>';
-  const known = (res.branch_known_coupons||[]).map(c => `<span class="pill">${c}</span>`).join('') || '<span class="muted">none yet</span>';
-  el.innerHTML = `
-    <div class="muted">Best value at ${res.restaurant}</div>
-    <div class="topay">₹${Math.round(b.to_pay)}</div>
-    <div style="margin:6px 0 14px">${coupon} · ${b.free_delivery ? 'free delivery' : 'delivery charged'} · ${b.cod ? 'COD ✓' : 'COD ✗'}</div>
-    ${items}
-    <div class="lineitem" style="border:0"><span class="muted">taxes & charges</span><span class="muted">₹${Math.round(b.taxes)}</span></div>
-    <p class="muted" style="margin-top:12px">Coupons known at this branch (shared by all users): ${known}</p>
-    <p class="muted">To order, open Swiggy and place it yourself — we never auto-order.</p>`;
+function render(res){
+  const r=$('result');
+  if(!res.found){ r.innerHTML=`<div class="panel"><p class="muted">${esc(res.message||'No cart fits that budget.')}</p></div>`; return; }
+  const b=res.bill;
+  const lines=res.items.map(it=>`<div class="rc-line"><span><span class="q">${it.qty}×</span> ${esc(it.name)}</span></div>`).join('');
+  const saved=Math.round(b.coupon_discount||0);
+  const tags=[ b.free_delivery?`<span class="tag good">free delivery</span>`:'',
+    b.cod?`<span class="tag good">COD ✓</span>`:`<span class="tag">card only</span>`,
+    b.coupon?`<span class="tag good">${esc(b.coupon)}</span>`:`<span class="tag">no coupon needed</span>` ].filter(Boolean).join('');
+  const known=(res.branch_known_coupons||[]);
+  r.innerHTML=`<div class="receipt">
+    <div class="rc-top"><div class="rc-kicker">Best value found</div><div class="rc-rest">${esc(res.restaurant)}</div></div>
+    ${lines}
+    <div class="rc-sep"></div>
+    <div class="rc-line rc-fin"><span>Item total</span><span class="v">₹${Math.round(b.item_total)}</span></div>
+    ${saved>0?`<div class="rc-line rc-fin"><span>Coupon ${esc(b.coupon||'')}</span><span class="save">−₹${saved}</span></div>`:''}
+    <div class="rc-line rc-fin"><span>Taxes & charges</span><span class="v">₹${Math.round(b.taxes)}</span></div>
+    <div class="rc-line rc-fin"><span>Delivery</span><span class="${b.free_delivery?'save':'v'}">${b.free_delivery?'FREE':'charged'}</span></div>
+    <div class="rc-total"><span class="k">TO PAY</span><span class="amt">₹<span id="cup">0</span></span></div>
+    <div class="rc-tags">${tags}</div>
+    <div class="barcode"></div>
+    <div class="rc-foot">
+      ${known.length?`Coupons this branch is known to give: <b>${known.map(esc).join(', ')}</b> — shared by everyone.<br>`:''}
+      Open Swiggy to place it yourself. We never auto-order.
+    </div>
+  </div>`;
+  countUp($('cup'), Math.round(b.to_pay), 850);
 }
 
-async function logout() { await fetch('/logout', {method:'POST'}); location.reload(); }
+function countUp(el,to,ms){ const t0=performance.now();
+  function step(t){ const p=Math.min(1,(t-t0)/ms); el.textContent=Math.round(to*(1-Math.pow(1-p,3))); if(p<1)requestAnimationFrame(step); }
+  requestAnimationFrame(step); }
+
+async function logout(){ await fetch('/logout',{method:'POST'}); location.reload(); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function attr(o){ return JSON.stringify(JSON.stringify(o)).replace(/'/g,'&#39;'); }
 boot();
 </script>
 </body>
