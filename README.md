@@ -103,11 +103,21 @@ async task-group `ExceptionGroup`s. The client layer handles this:
 
 ## Run
 
+### Docker (easiest — no Python setup needed)
+
+```bash
+docker-compose up --build
+```
+
+Open **http://localhost:8000** → click **"Try the demo — no login"** → set a budget → see the optimizer in action.
+
+### Local dev
+
 ```bash
 python3 -m venv venv && venv/bin/pip install -r requirements-dev.txt
-venv/bin/python -m pytest                       # 498 tests (incl. DP-vs-oracle)
+venv/bin/python -m pytest                       # 500 tests (incl. DP-vs-oracle)
 
-# web app (local)
+# web app
 venv/bin/uvicorn webapp.server:app --reload --port 8000   # http://localhost:8000
 ```
 

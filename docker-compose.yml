@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - flavourscout-data:/data
+    environment:
+      - PORT=8000
+      - COUPON_DB=/data/coupons.db
+      - SESSION_FILE=/data/sessions.json
+      - SESSION_SECRET=docker-local-dev
+
+volumes:
+  flavourscout-data:
