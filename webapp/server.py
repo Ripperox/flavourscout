@@ -62,7 +62,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("cartoptimizer.web")
 
-app = FastAPI(title="Cart Optimizer")
+app = FastAPI(title="BudgetBite")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", secrets.token_hex(32)))
 
 # Shared coupon ledger — one DB for ALL users of this backend.

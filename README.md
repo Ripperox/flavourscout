@@ -1,4 +1,4 @@
-# Cartographer — the best-value food cart for your budget
+# BudgetBite — the best-value food cart for your budget
 
 Log in with your food account, enter a budget, and get the **highest-value cart
 that lands just under it** — priced by the platform's *authoritative bill*, with
