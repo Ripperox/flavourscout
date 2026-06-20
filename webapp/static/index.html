@@ -66,6 +66,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;ma
 .cta:hover{transform:translateY(-2px) rotate(-.4deg)}
 .cta:active{transform:translateY(0)}
 .tiny{font-size:12.5px;color:var(--ink-2);margin-top:14px}
+.swiggy-note{font-size:13px;color:#7a531a;background:#fff4e0;border:1px solid #f0d49a;border-radius:11px;padding:10px 13px;margin-top:14px;max-width:30em;line-height:1.5}
+.swiggy-note b{color:#5e3f12}
 .marquee{margin-top:40px;border-top:1px dashed var(--line-2);border-bottom:1px dashed var(--line-2);
   padding:14px 0;overflow:hidden;white-space:nowrap;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .marquee span{display:inline-block;animation:slide 22s linear infinite;font-family:"Fraunces",serif;
@@ -223,9 +225,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
       <div class="eyebrow">Best value, found for you</div>
       <h1>Eat better<br>for <em>exactly</em><br>your budget.</h1>
       <p>Tell us a number. We build carts on your Swiggy, hunt every coupon that could apply, and hand you the highest-value order that lands just under budget — coupons auto-discovered, never typed.</p>
-      <a class="cta" href="/login">Connect Swiggy →</a>
-      <button class="cta-ghost" onclick="startDemo()">Try the demo — no login →</button>
-      <div class="tiny">Read-only browsing + cart building. We only place an order on your explicit confirmation.</div>
+      <a class="cta" onclick="startDemo()" style="cursor:pointer">Connect Swiggy →</a>
+      <div class="swiggy-note">⏳ <b>Swiggy login is under progress</b> — we're getting access to Swiggy's builder program. For now, this opens the live demo so you can see exactly how it works.</div>
+      <div class="tiny">We only ever place an order on your explicit confirmation.</div>
       <div class="marquee"><span>
         McDonald's <i>·</i> Burger King <i>·</i> Starbucks <i>·</i> Taco Bell <i>·</i> KFC <i>·</i> Domino's <i>·</i>
         McDonald's <i>·</i> Burger King <i>·</i> Starbucks <i>·</i> Taco Bell <i>·</i> KFC <i>·</i> Domino's <i>·</i>
@@ -236,7 +238,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
   <!-- LOGGED IN -->
   <section id="app" class="hidden">
 
-    <div id="demoBanner" class="demobar hidden">🧪 <b>Demo mode</b> — sample menu, estimated totals, no real order is placed. <a href="/login">Connect Swiggy</a> to use your real account.</div>
+    <div id="demoBanner" class="demobar hidden">🧪 <b>Demo mode</b> — real engine on a sample menu, estimated totals, no real order is placed. <b>Live Swiggy ordering is coming soon</b> (builder-program access in progress).</div>
 
     <div id="addrPanel" class="panel">
       <p class="label">Deliver to</p>
