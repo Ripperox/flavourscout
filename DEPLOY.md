@@ -1,60 +1,66 @@
-# Deploying the Cart Optimizer web app
+# Deploying BudgetBite
 
 A FastAPI backend + static UI. Each visitor logs into their own Swiggy account
-(OAuth 2.1 + PKCE); the backend runs the optimize→live-verify pipeline and shares
-discovered coupons across all users via a SQLite per-branch ledger.
+(OAuth 2.1 + PKCE); the backend runs the optimize → live-verify pipeline,
+personalizes (veg / group size / drinks), continuously proves coupons per branch
+(shared ledger), and can place the order on explicit confirmation.
 
-> **Safety:** the app never calls `place_food_order`. It builds carts, applies
-> coupons to read the real bill, and flushes the cart after every probe.
+> **Safety:** the optimizer never places orders. `place_food_order` runs *only*
+> from an explicit, confirmed user click (Cash on Delivery, with a
+> "can't be cancelled" warning). All coupon/price probing flushes the cart after
+> every probe.
 
 ## Run locally
 
 ```bash
-./venv/bin/uvicorn webapp.server:app --reload --port 8000
-# open http://localhost:8000
+python3 -m venv venv && venv/bin/pip install -r requirements-dev.txt
+venv/bin/python -m pytest                                  # 498 tests
+venv/bin/uvicorn webapp.server:app --reload --port 8000    # http://localhost:8000
 ```
 
-For the OAuth redirect to work locally, the redirect URI is
-`http://localhost:8000/callback` (derived from the request automatically).
+The local OAuth redirect URI is `http://localhost:8000/callback` (derived from
+the request automatically).
 
-## Deploy to Render (recommended — free tier, persistent disk)
+## Deploy to Render (free tier, persistent disk)
 
-1. Push this repo to GitHub (already on branch `cart-optimizer-engine`).
-2. In Render → **New → Blueprint**, point it at the repo. It reads `render.yaml`
-   and creates the Docker web service + a 1 GB disk for the shared coupon DB.
-3. First deploy gives you a URL like `https://cart-optimizer-xxxx.onrender.com`.
-4. Set the **`BASE_URL`** env var to that exact https URL and redeploy (so the
-   OAuth `redirect_uri` matches). Optionally set `SWIGGY_CLIENT_ID` (below).
-5. Open the URL and click **Login with Swiggy**.
+The repo is on GitHub (`Cart-Optimization/knapsack-logic`, default branch `main`).
 
-`SESSION_SECRET` is auto-generated. `COUPON_DB=/data/coupons.db` lives on the disk
-so the shared ledger survives restarts.
+1. **Render → New → Blueprint**, point it at the repo. It reads `render.yaml` and
+   creates the Docker web service **budgetbite** + a 1 GB disk at `/data`.
+2. First deploy gives a URL like `https://budgetbite-xxxx.onrender.com`.
+3. Set the **`BASE_URL`** env var to that exact https URL and redeploy (so the
+   OAuth `redirect_uri` matches). This is the **only** var you must set by hand.
+4. Open the URL → **Login with Swiggy**.
 
-### Vercel / Fly / Railway
-Any Docker host works — point it at the `Dockerfile`, set `BASE_URL` to the public
-URL, and mount a volume at `/data` (or accept that the coupon DB resets on redeploy).
+Auto-configured by `render.yaml`: `SESSION_SECRET` (generated), `COUPON_DB` and
+`SESSION_FILE` (both on the persistent disk, so the coupon ledger **and** logins
+survive restarts). `SWIGGY_CLIENT_ID` is optional (see OAuth note).
+
+### Any other Docker host (Fly / Railway / …)
+Point it at the `Dockerfile`, set `BASE_URL` to the public URL, and mount a volume
+at `/data` (or accept that the ledger + sessions reset on redeploy).
 
 ## ⚠️ The one thing that needs your live test: Swiggy OAuth
 
-The OAuth flow is built strictly to Swiggy's published metadata
-(`/.well-known/oauth-authorization-server`), but a **real token exchange has not
-been completed end-to-end** — that needs a human Swiggy login, which can't be
-automated here. Two things to verify on first login:
+The OAuth flow is built to Swiggy's published metadata, but a real token exchange
+on a **public URL** hasn't been confirmed end-to-end (local login works). On first
+deploy, verify:
 
-1. **Dynamic client registration.** By default the app tries RFC 7591 dynamic
-   registration at `https://mcp.swiggy.com/auth/register` with your deploy's
-   `redirect_uri`. If Swiggy rejects it, you'll see a login error. In that case,
-   register a client out-of-band (or reuse the one Claude's `/mcp` uses) and set
-   `SWIGGY_CLIENT_ID`.
-2. **redirect_uri match.** It must exactly equal `${BASE_URL}/callback`. Mismatch
-   → Swiggy returns an error on the callback. Fix `BASE_URL` and redeploy.
+1. **redirect_uri match** — must exactly equal `${BASE_URL}/callback`. Mismatch →
+   error on callback. Fix `BASE_URL` and redeploy.
+2. **Dynamic client registration** — the app tries RFC 7591 registration at
+   `https://mcp.swiggy.com/auth/register`. If Swiggy rejects it, register a client
+   out-of-band (or reuse the one Claude's `/mcp` uses) and set `SWIGGY_CLIENT_ID`.
 
-If login fails, the rest of the app (menu/optimize/verify) can't run, because it
-needs the user's token. Everything *after* a successful login is already
-validated against live Swiggy in earlier testing.
+If live login is flaky, fall back to a recorded walkthrough of the local app for
+the showcase — everything after login is already validated against live Swiggy.
 
 ## What's shared vs per-user
-- **Per-user:** the OAuth token (server-side session, keyed by an opaque cookie
-  `sid`; tokens never go to the browser).
-- **Shared:** the coupon ledger (`/data/coupons.db`). A coupon any user finds at
-  a branch is immediately tried first for every other user at that branch.
+- **Per-user:** the OAuth token (server-side session, keyed by an opaque `sid`
+  cookie; tokens never reach the browser).
+- **Shared:** the coupon ledger (`/data/coupons.db`) — a code proven at one branch
+  is tried first for everyone there, and **brand-wide** across that chain.
+
+> Single-instance by design (in-process caches + background coupon sweeps). The
+> free tier's one instance is the right fit; don't scale to multiple instances
+> without moving sessions/ledger to a shared store.

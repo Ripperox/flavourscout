@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cart-optimizer
+    name: budgetbite
     runtime: docker
     plan: free
     healthCheckPath: /api/me
@@ -12,8 +12,10 @@ services:
       - key: SWIGGY_CLIENT_ID
         sync: false                    # optional: pre-registered OAuth client id
       - key: COUPON_DB
-        value: /data/coupons.db
+        value: /data/coupons.db        # shared coupon ledger on the persistent disk
+      - key: SESSION_FILE
+        value: /data/sessions.json     # logins survive restarts (also on the disk)
     disk:
-      name: coupon-data                # persists the shared coupon ledger
+      name: budgetbite-data            # persists the coupon ledger + sessions
       mountPath: /data
       sizeGB: 1
