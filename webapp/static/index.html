@@ -201,6 +201,43 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
   font-weight:700;font-size:12px;padding:4px 12px;border-radius:8px 0 0 8px;letter-spacing:.02em}
 .rc-disclaimer{font-size:12px;color:var(--ink-2);text-align:center;margin:4px 4px 0;line-height:1.6}
 
+/* ---- hero preview card (desktop visual) ---- */
+.hero-preview{display:none}
+.hp-receipt{background:var(--paper-2);border:1px solid var(--line);box-shadow:var(--shadow);
+  font-family:"JetBrains Mono",monospace;padding:24px 22px;border-radius:4px;transform:rotate(1.5deg);
+  position:relative;animation:rise .85s cubic-bezier(.2,.7,.2,1) both}
+.hp-receipt::before,.hp-receipt::after{content:"";position:absolute;left:0;right:0;height:9px;
+  background:radial-gradient(circle at 6px -2px,transparent 6px,var(--paper-2) 7px) repeat-x;background-size:16px 9px}
+.hp-receipt::before{top:-8px;transform:rotate(180deg)}.hp-receipt::after{bottom:-8px}
+.hp-top{font-family:"Fraunces",serif;font-weight:900;letter-spacing:.16em;text-align:center;
+  font-size:13px;color:var(--flame);border-bottom:1.5px dashed var(--line-2);padding-bottom:12px;margin-bottom:12px}
+.hp-line{display:flex;justify-content:space-between;gap:14px;font-size:13.5px;padding:4px 0}
+.hp-line.dim{color:var(--leaf);font-weight:700}
+.hp-sep{border-top:1.5px dashed var(--line-2);margin:10px 0}
+.hp-total{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--ink);
+  margin-top:8px;padding-top:10px;font-weight:700}
+.hp-total b{font-family:"Fraunces",serif;font-weight:900;font-size:30px}
+.hp-cap{text-align:center;font-family:"Hanken Grotesk";font-size:12px;color:var(--ink-2);margin-top:12px}
+
+/* ---- desktop layout (keep the mobile column on narrow screens) ---- */
+@media (min-width:900px){
+  .wrap{max-width:1140px;padding:26px 34px 96px}
+  .hero{display:grid;grid-template-columns:1.05fr .9fr;gap:54px;align-items:center;padding:52px 0 26px}
+  .hero-copy{grid-column:1}
+  .hero p{margin-bottom:24px}
+  .hero-preview{display:block;grid-column:2}
+  .hero .marquee{grid-column:1 / -1;margin-top:30px}
+  .workspace{display:grid;grid-template-columns:372px 1fr;gap:24px;align-items:start}
+  .rail{position:sticky;top:24px;display:flex;flex-direction:column;gap:16px}
+  .rail .panel{margin-bottom:0}
+  .stage{min-width:0;display:flex;flex-direction:column;gap:16px}
+  .stage .panel{margin-bottom:0}
+  .rgrid{grid-template-columns:1fr 1fr}
+  .receipts{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;align-items:start}
+  .receipts .receipt{margin-bottom:0}
+  .cstat{margin-top:32px}
+}
+
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes print{from{opacity:0;transform:translateY(-10px) scaleY(.96);transform-origin:top}to{opacity:1;transform:none}}
 @keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -222,12 +259,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
   <!-- LOGGED OUT -->
   <section id="login" class="hidden">
     <div class="hero">
-      <div class="eyebrow">Best value, found for you</div>
-      <h1>Eat better<br>for <em>exactly</em><br>your budget.</h1>
-      <p>Tell us a number. We build carts on your Swiggy, hunt every coupon that could apply, and hand you the highest-value order that lands just under budget — coupons auto-discovered, never typed.</p>
-      <a class="cta" onclick="startDemo()" style="cursor:pointer">Connect Swiggy →</a>
-      <div class="swiggy-note">⏳ <b>Swiggy login is under progress</b> — we're getting access to Swiggy's builder program. For now, this opens the live demo so you can see exactly how it works.</div>
-      <div class="tiny">We only ever place an order on your explicit confirmation.</div>
+      <div class="hero-copy">
+        <div class="eyebrow">Best value, found for you</div>
+        <h1>Eat better<br>for <em>exactly</em><br>your budget.</h1>
+        <p>Tell us a number. We build carts on your Swiggy, hunt every coupon that could apply, and hand you the highest-value order that lands just under budget — coupons auto-discovered, never typed.</p>
+        <a class="cta" onclick="startDemo()" style="cursor:pointer">Connect Swiggy →</a>
+        <div class="swiggy-note">⏳ <b>Swiggy login is under progress</b> — we're getting access to Swiggy's builder program. For now, this opens the live demo so you can see exactly how it works.</div>
+        <div class="tiny">We only ever place an order on your explicit confirmation.</div>
+      </div>
+      <div class="hero-preview" aria-hidden="true">
+        <div class="hp-receipt">
+          <div class="hp-top">FLAVOURSCOUT</div>
+          <div class="hp-line"><span>1× McSpicy Burger</span><span>₹169</span></div>
+          <div class="hp-line"><span>1× Fries (M)</span><span>₹99</span></div>
+          <div class="hp-line"><span>1× Choco Lava Cake</span><span>₹99</span></div>
+          <div class="hp-sep"></div>
+          <div class="hp-line"><span>Item total</span><span>₹367</span></div>
+          <div class="hp-line dim"><span>Coupon FLAT100</span><span>−₹100</span></div>
+          <div class="hp-total"><span>TO PAY</span><b>₹297</b></div>
+          <div class="hp-cap">just under ₹300 · the best value we could find</div>
+        </div>
+      </div>
       <div class="marquee"><span>
         McDonald's <i>·</i> Burger King <i>·</i> Starbucks <i>·</i> Taco Bell <i>·</i> KFC <i>·</i> Domino's <i>·</i>
         McDonald's <i>·</i> Burger King <i>·</i> Starbucks <i>·</i> Taco Bell <i>·</i> KFC <i>·</i> Domino's <i>·</i>
@@ -240,56 +292,62 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
 
     <div id="demoBanner" class="demobar hidden">🧪 <b>Demo mode</b> — real engine on a sample menu, estimated totals, no real order is placed. <b>Live Swiggy ordering is coming soon</b> (builder-program access in progress).</div>
 
-    <div id="addrPanel" class="panel">
-      <p class="label">Deliver to</p>
-      <div class="field">
-        <select id="address" onchange="onAddrChange()"></select>
-        <button class="btn ghost" style="flex:0 0 auto" onclick="useMyLocation()">📍 Locate me</button>
-      </div>
-      <p id="geo" class="geo"></p>
-    </div>
-
-    <div id="nearbyPanel" class="panel hidden">
-      <p class="label">Restaurants near you</p>
-      <div id="nearby" class="rgrid"></div>
-      <div style="margin-top:14px">
-        <p class="label">Or search by name</p>
-        <div class="field">
-          <input id="q" type="text" placeholder="KFC, Domino's, …" onkeydown="if(event.key==='Enter')search()"/>
-          <button class="btn" style="flex:0 0 auto" onclick="search()">Search</button>
+    <div class="workspace">
+      <aside class="rail">
+        <div id="addrPanel" class="panel">
+          <p class="label">Deliver to</p>
+          <div class="field">
+            <select id="address" onchange="onAddrChange()"></select>
+            <button class="btn ghost" style="flex:0 0 auto" onclick="useMyLocation()">📍 Locate me</button>
+          </div>
+          <p id="geo" class="geo"></p>
         </div>
-        <div id="results" class="rgrid" style="margin-top:10px"></div>
-      </div>
-    </div>
 
-    <div id="budgetPanel" class="panel hidden">
-      <div class="budget-head">
-        <p class="label" style="margin:0">Budget at <span id="chosenName" style="color:var(--flame)"></span></p>
-        <div class="budget-val">₹<span id="budgetVal">400</span></div>
-      </div>
-      <div class="presets">
-        <button class="preset" data-v="200">₹200</button>
-        <button class="preset on" data-v="400">₹400</button>
-        <button class="preset" data-v="600">₹600</button>
-        <button class="preset" data-v="800">₹800</button>
-      </div>
-      <input id="budget" type="range" min="100" max="1000" step="20" value="400" oninput="onBudgetSlide()"/>
-      <div class="grouprow">
-        <span>For how many people?</span>
-        <div class="stepper">
-          <button type="button" onclick="bumpGroup(-1)" aria-label="fewer">−</button>
-          <span id="groupVal">1</span>
-          <button type="button" onclick="bumpGroup(1)" aria-label="more">+</button>
+        <div id="budgetPanel" class="panel hidden">
+          <div class="budget-head">
+            <p class="label" style="margin:0">Budget at <span id="chosenName" style="color:var(--flame)"></span></p>
+            <div class="budget-val">₹<span id="budgetVal">400</span></div>
+          </div>
+          <div class="presets">
+            <button class="preset" data-v="200">₹200</button>
+            <button class="preset on" data-v="400">₹400</button>
+            <button class="preset" data-v="600">₹600</button>
+            <button class="preset" data-v="800">₹800</button>
+          </div>
+          <input id="budget" type="range" min="100" max="1000" step="20" value="400" oninput="onBudgetSlide()"/>
+          <div class="grouprow">
+            <span>For how many people?</span>
+            <div class="stepper">
+              <button type="button" onclick="bumpGroup(-1)" aria-label="fewer">−</button>
+              <span id="groupVal">1</span>
+              <button type="button" onclick="bumpGroup(1)" aria-label="more">+</button>
+            </div>
+          </div>
+          <label class="drinkrow"><input id="vegToggle" type="checkbox"/>
+            <span>Vegetarian only <em>— only items marked pure-veg</em></span></label>
+          <label class="drinkrow"><input id="drinkToggle" type="checkbox"/>
+            <span>Include a drink <em>— we'll get it the cheapest way, usually as a meal</em></span></label>
+          <button id="goBtn" class="find" onclick="optimize()">Find my best cart →</button>
         </div>
-      </div>
-      <label class="drinkrow"><input id="vegToggle" type="checkbox"/>
-        <span>Vegetarian only <em>— only items marked pure-veg</em></span></label>
-      <label class="drinkrow"><input id="drinkToggle" type="checkbox"/>
-        <span>Include a drink <em>— we'll get it the cheapest way, usually as a meal</em></span></label>
-      <button id="goBtn" class="find" onclick="optimize()">Find my best cart →</button>
-    </div>
+      </aside>
 
-    <div id="result"></div>
+      <main class="stage">
+        <div id="nearbyPanel" class="panel hidden">
+          <p class="label">Restaurants near you</p>
+          <div id="nearby" class="rgrid"></div>
+          <div style="margin-top:14px">
+            <p class="label">Or search by name</p>
+            <div class="field">
+              <input id="q" type="text" placeholder="KFC, Domino's, …" onkeydown="if(event.key==='Enter')search()"/>
+              <button class="btn" style="flex:0 0 auto" onclick="search()">Search</button>
+            </div>
+            <div id="results" class="rgrid" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div id="result"></div>
+      </main>
+    </div>
   </section>
   <p id="couponStat" class="cstat hidden"></p>
 
@@ -458,8 +516,9 @@ function render(res){
     ? `Estimated totals (demo menu) — the live app reads Swiggy's authoritative bill. <a href="/login" style="color:var(--flame);font-weight:700">Connect Swiggy</a> to order on your account.`
     : `Placing uses <b>Cash on Delivery</b> — you'll confirm before anything is ordered.${
         known.length?` · Coupons known at this branch: <b>${known.map(esc).join(', ')}</b>`:''}`;
-  r.innerHTML = head + opts.map((o,idx)=>receiptHTML(res.restaurant, o, idx, known, res.budget)).join('')
-    + `<p class="rc-disclaimer">${disclaimer}</p>`;
+  r.innerHTML = head + `<div class="receipts">`
+    + opts.map((o,idx)=>receiptHTML(res.restaurant, o, idx, known, res.budget)).join('')
+    + `</div><p class="rc-disclaimer">${disclaimer}</p>`;
   // count up each total
   opts.forEach((o,idx)=>{ const el=document.getElementById('cup'+idx); if(el) countUp(el, Math.round(o.bill.to_pay), 850); });
   setTimeout(loadStats, 9000);   // background coupon sweep may have proven more by now

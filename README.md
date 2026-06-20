@@ -2,14 +2,17 @@
 
 **Tell it your budget. It hands you the best-value food order you can get for that money — coupons and all.**
 
+### 🌐 [**Try it live → flavourscout.onrender.com**](https://flavourscout.onrender.com/)
+
 You pick a restaurant and a number (say ₹400). FlavourScout figures out the
 *highest-value cart that lands just under your budget* — the real total, after the
 best working coupon, delivery, and taxes. No more juggling items in your head or
 hunting for codes that turn out to be expired.
 
-> 🧪 **Want to see it without signing in?** Run it locally and click
-> **"Try the demo — no login"** on the home screen. It runs the real engine on a
-> sample menu.
+> 🧪 **No sign-in needed:** open the live link (or run it locally) and click
+> **Connect Swiggy** — while real Swiggy login is being set up, it opens a live
+> demo that runs the real engine on a sample menu.
+> *(First load can take ~30s — the free host wakes from sleep.)*
 
 ---
 
