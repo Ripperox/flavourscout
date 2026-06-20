@@ -25,7 +25,12 @@ stores gracefully.
 
 ### Invariants this design must preserve (safety & correctness)
 
-- **Never** call `place_food_order` (COD orders are non-cancellable).
+- `place_food_order` is called **only** in direct response to an explicit user
+  confirmation (the Place Order button + a confirmation dialog) — **never**
+  automatically, never during price-probing/optimization, and never by the
+  assistant during testing. The optimization pipeline itself still never places
+  orders (it only probes and flushes). COD orders are non-cancellable, so the
+  confirmation must state this prominently.
 - The "best value" total **must** come from Swiggy's authoritative bill
   (`to_pay`), never an estimate.
 - Cart-mutating tools are used only to *probe*; the cart is **flushed after every
@@ -41,6 +46,8 @@ stores gracefully.
 - No full quantity-aware re-optimization for group size (soft constraint only).
 - No multi-instance horizontal scaling work (single-instance deploy is fine).
 - No new coupon-modeling beyond what already exists.
+- No online/card/UPI payment integration — order placement is **Cash on Delivery
+  only**.
 
 ## Workstreams
 
@@ -144,6 +151,43 @@ recorded walkthrough + screenshots stand in.
 **Acceptance:** A reader unfamiliar with the repo understands what it does, why
 the approach is sound, and what was engineered — in a few minutes.
 
+### 6. Order placement (user-initiated, COD-aware)
+
+A **Place Order** button on a recommended cart that lets the *user* place the
+real order on their own Swiggy account. This is the one place the app performs an
+irreversible, real-money action, so it is gated tightly.
+
+**Safety model (non-negotiable):**
+- `place_food_order` is invoked **only** by an explicit user click that passes
+  through a confirmation dialog. Never automatically; never by the optimization
+  pipeline; never by the assistant during testing.
+- The confirmation dialog shows the restaurant, exact items, and the
+  **authoritative `to_pay` total**, names the payment method (**Cash on
+  Delivery**), and prominently warns: *COD orders cannot be cancelled or refunded
+  once placed.* The user must explicitly confirm.
+- **Price-drift guard:** before placing, the backend rebuilds the selected cart
+  live and re-reads the bill; if `to_pay` no longer matches what the user was
+  shown (beyond a small tolerance), it aborts and re-presents the updated total
+  for re-confirmation rather than placing silently.
+- The request must carry an explicit `confirmed: true` flag (set only by the
+  modal's confirm action), so a stray/direct call cannot place an order.
+
+**Flow:**
+1. User clicks Place Order on an option → confirmation modal (items, total, COD
+   warning).
+2. On confirm → `POST /api/place-order {restaurantId, addressId, option,
+   confirmed: true}`.
+3. Backend rebuilds that exact cart (and re-applies its winning coupon), verifies
+   `to_pay`, then calls `place_food_order`. The probe-flush rule does **not**
+   apply here — the cart must persist to be ordered.
+4. Return Swiggy's order confirmation (order id / status) and show it; surface any
+   failure cleanly.
+
+**Acceptance:** The button never fires without explicit confirmation; the COD
+non-cancellable warning is shown before any order; a drifted price blocks the
+placement and re-confirms. (Live end-to-end placement is the user's to test — the
+assistant never places a real order.)
+
 ## Components / Files Touched
 
 - `cart_optimizer/swiggy_client.py` — rate limiter, 429 detection, teardown.
@@ -152,10 +196,14 @@ the approach is sound, and what was engineered — in a few minutes.
 - `cart_optimizer/models.py` — `Item.is_veg` (optional tri-state: veg / non-veg /
   unknown).
 - `webapp/server.py` — profile params on `/api/optimize`, veg filter, group-size
-  preference, graceful error handling, fewer verify calls.
-- `webapp/static/index.html` — profile step (veg/non-veg, group size) in the flow.
+  preference, graceful error handling, fewer verify calls; `/api/place-order`
+  endpoint (rebuild + verify + place).
+- `cart_optimizer/run.py` — a build-and-place helper (no flush) used by
+  `/api/place-order`.
+- `webapp/static/index.html` — profile step (veg/non-veg, group size) in the
+  flow; Place Order button + COD confirmation modal.
 - `tests/` — `test_swiggy_client.py` (rate limiter + 429 detection), profiling
-  tests, store-robustness messaging test.
+  tests, store-robustness messaging test, place-order gating test.
 - Docs — this spec; showcase writeup.
 
 ## Data Flow (optimize request)
@@ -167,6 +215,11 @@ optimize within stretch ceiling → **prefer carts with ≥N mains** → live-ve
 top candidate(s) for the authoritative bill (coupons auto-tried) → return top-2
 options (within / stretch) or a typed message (busy / can't-build / no-fit).
 
+**Place-order flow** (separate, user-initiated): confirm modal →
+`POST /api/place-order {…, confirmed:true}` → rebuild selected cart (no flush) →
+re-verify `to_pay` (drift guard) → `place_food_order` → return order
+confirmation. See workstream 6.
+
 ## Error Handling
 
 | Condition | Response |
@@ -174,6 +227,9 @@ options (within / stretch) or a typed message (busy / can't-build / no-fit).
 | Swiggy rate-limited / transport poisoned | 200 `{found:false, message:"Swiggy is busy — try again in a moment."}` |
 | No candidate could be built (store unsupported) | 200 `{found:false, message:"couldn't build a cart here"}` |
 | Carts built but none within budget | 200 `{found:false, message:"No cart fits ₹X"}` |
+| Place-order without `confirmed:true` | 400 — never reaches `place_food_order` |
+| Price drifted since shown | 200 `{placed:false, reason:"price_changed", newTotal}` → re-confirm |
+| Order placement failed upstream | 200 `{placed:false, message:"Couldn't place the order — try on Swiggy directly."}` |
 | Bad request body | 422 (Pydantic validation) |
 | Unexpected server error | 500 clean JSON (global handler, no traceback leak) |
 
@@ -185,6 +241,9 @@ options (within / stretch) or a typed message (busy / can't-build / no-fit).
   preference selects ≥N mains when affordable; store-robustness message mapping.
 - Web layer: `/api/optimize` 422 on bad budget, 401 when logged out (first web
   tests).
+- Order placement: `/api/place-order` rejects without `confirmed:true` and when
+  logged out; the price-drift path returns re-confirm **without** calling
+  `place_food_order` (the place call is mocked — never hit live in tests).
 - Manual/live: one warm-cache optimize call-count check; veg-only and group-size
   visibly change a real cart.
 
@@ -203,13 +262,17 @@ options (within / stretch) or a typed message (busy / can't-build / no-fit).
 1. Reliability layer (unblocks all live testing).
 2. Empty-cart investigation + graceful store handling.
 3. Profiling (veg/non-veg, then group size).
-4. Deploy + OAuth check (with fallback).
-5. Showcase writeup + final polish.
+4. Order placement (button + COD confirmation + price-drift guard).
+5. Deploy + OAuth check (with fallback).
+6. Showcase writeup + final polish.
 
 ## Definition of Done
 
 - No 500s under rapid multi-store/budget testing; clean retry message under load.
 - Unsupported stores show the correct message, not a misleading one.
 - Veg-only and group-size demonstrably change carts, verified by the live bill.
+- The Place Order button places a real order **only** after an explicit
+  COD-warning confirmation, with a price-drift guard; the pipeline never
+  auto-places.
 - A public URL (or recorded walkthrough) demonstrates the full flow.
 - A brand-neutral one-pager + green test suite present the rigor.
