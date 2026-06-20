@@ -111,3 +111,24 @@ def test_place_order_without_pending_cart(monkeypatch, client):
     monkeypatch.setattr(srv, "_token", lambda request: "tok")
     r = client.post("/api/place-order", json={"optionIndex": 0, "confirmed": True})
     assert r.status_code == 409  # nothing stashed for this session
+
+
+# ── public demo mode (no login) ─────────────────────────────────────────────────
+
+def test_demo_optimize_no_login(client):
+    r = client.post("/api/optimize", json={
+        "restaurantId": "demo", "addressId": "demo", "budget": 400, "demo": True})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["found"] and body["estimated"] and body["demo"]
+    assert body["options"] and body["options"][0]["bill"]["to_pay"] <= 400 + 0.5
+
+
+def test_demo_veg_only_excludes_nonveg(client):
+    r = client.post("/api/optimize", json={
+        "restaurantId": "demo", "addressId": "demo", "budget": 600,
+        "demo": True, "vegOnly": True})
+    body = r.json()
+    assert body["found"]
+    names = " ".join(it["name"] for o in body["options"] for it in o["items"]).lower()
+    assert "chicken" not in names      # non-veg filtered out

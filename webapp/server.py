@@ -42,7 +42,9 @@ from cart_optimizer.run import (
 )
 from cart_optimizer.swiggy_client import SwiggyClient, SwiggyClientError, _is_rate_limited
 from cart_optimizer import coupon_monitor
+from cart_optimizer.optimizer import best_cart
 from . import oauth
+from .demo_data import demo_menu, DEMO_RESTAURANT
 
 STATIC_DIR = Path(__file__).parent / "static"
 COUPON_DB = os.getenv("COUPON_DB", "./data/coupons.db")
@@ -283,10 +285,13 @@ class OptimizeRequest(BaseModel):
     drinks: bool = False
     vegOnly: bool = False
     groupSize: int = Field(default=1, ge=1, le=20)
+    demo: bool = False
 
 
 @app.post("/api/optimize")
 async def optimize(request: Request, body: OptimizeRequest):
+    if body.demo:                       # no-login public demo on the bundled menu
+        return _demo_optimize(body)
     token = _token(request)
     rid = body.restaurantId
     addr = body.addressId
@@ -489,6 +494,60 @@ def _main_count(cart) -> int:
 def _line_veg(line):
     item = getattr(line, "item", None)
     return getattr(item, "is_veg", None) if item is not None else None
+
+
+def _demo_optimize(body: OptimizeRequest) -> dict:
+    """No-login demo: run the real optimizer + profiling on the bundled menu.
+    Totals are ESTIMATED from the internal fee model (no live bill, no ordering)."""
+    menu = demo_menu()
+    if not body.drinks:
+        menu = _food_only(menu)
+    if body.vegOnly:
+        menu = _veg_only(menu)
+        if not menu.items:
+            return {"found": False, "restaurant": DEMO_RESTAURANT, "demo": True,
+                    "message": "No vegetarian items in the demo menu."}
+
+    budget = float(body.budget)
+    stretch = budget * (1 + BUDGET_BUFFER)
+    opt1 = _demo_option(menu, budget, budget, "within")
+    if not opt1:
+        return {"found": False, "restaurant": DEMO_RESTAURANT, "demo": True,
+                "message": f"No cart fits ₹{budget:.0f} in the demo menu."}
+    options = [opt1]
+    stretch_opt = _demo_option(menu, stretch, budget, "stretch")
+    if (stretch_opt and stretch_opt["bill"]["to_pay"] > budget + 0.5
+            and stretch_opt["preference"] > opt1["preference"] + 1e-6):
+        options.append(stretch_opt)
+
+    return {"found": True, "restaurant": DEMO_RESTAURANT, "demo": True, "estimated": True,
+            "budget": budget, "group_size": body.groupSize,
+            "per_head": round(budget / body.groupSize),
+            "options": options, "branch_known_coupons": []}
+
+
+def _demo_option(menu, solve_budget: float, display_budget: float, kind: str) -> dict | None:
+    result = best_cart(menu, User(), CONFIG, solve_budget)
+    if not result.cart.lines:
+        return None
+    b = result.breakdown
+    code = result.coupon.id.replace("off_", "").upper() if result.coupon else None
+    return {
+        "kind": kind,
+        "over": max(0, round(b.total - display_budget)),
+        "preference": round(result.preference, 2),
+        "items": [{"name": _line_name(l), "qty": l.quantity, "veg": _line_veg(l)}
+                  for l in result.cart.lines],
+        "bill": {
+            "to_pay": round(b.total, 2),
+            "item_total": round(b.subtotal, 2),
+            "coupon": code,
+            "coupon_discount": round(b.discount, 2),
+            "free_delivery": b.delivery_fee == 0,
+            "taxes": round(b.tax + b.platform_fee, 2),
+            "cod": True,
+        },
+    }
 
 
 def _option(v: VerifiedCart, budget: float, kind: str) -> dict:

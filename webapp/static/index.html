@@ -147,6 +147,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
 .order-done .big{font-family:"Fraunces",serif;font-size:24px;font-weight:800;margin:10px 0 4px}
 .cstat{text-align:center;color:var(--ink-2);font-size:13px;margin:26px auto 10px;max-width:560px;line-height:1.5}
 .cstat b{color:var(--ink)}
+.cta-ghost{display:inline-block;margin:12px 0 0 14px;background:none;border:1.5px solid var(--ink);color:var(--ink);font-weight:700;font-size:15px;padding:13px 22px;border-radius:12px;cursor:pointer}
+.cta-ghost:hover{border-color:var(--flame);color:var(--flame)}
+.demobar{background:#fff4e0;border:1px solid #f0d49a;color:#7a531a;border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:16px;line-height:1.5}
+.demobar a{color:var(--flame);font-weight:700}
 .find{width:100%;background:var(--flame);color:#fff;font-weight:700;font-size:16px;padding:16px;
   border-radius:14px;box-shadow:var(--shadow);transition:transform .12s ease,filter .2s}
 .find:hover{filter:brightness(1.05);transform:translateY(-1px)}
@@ -220,7 +224,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
       <h1>Eat better<br>for <em>exactly</em><br>your budget.</h1>
       <p>Tell us a number. We build carts on your Swiggy, hunt every coupon that could apply, and hand you the highest-value order that lands just under budget — coupons auto-discovered, never typed.</p>
       <a class="cta" href="/login">Connect Swiggy →</a>
-      <div class="tiny">Read-only browsing + cart building. We <b>never</b> place an order for you.</div>
+      <button class="cta-ghost" onclick="startDemo()">Try the demo — no login →</button>
+      <div class="tiny">Read-only browsing + cart building. We only place an order on your explicit confirmation.</div>
       <div class="marquee"><span>
         McDonald's <i>·</i> Burger King <i>·</i> Starbucks <i>·</i> Taco Bell <i>·</i> KFC <i>·</i> Domino's <i>·</i>
         McDonald's <i>·</i> Burger King <i>·</i> Starbucks <i>·</i> Taco Bell <i>·</i> KFC <i>·</i> Domino's <i>·</i>
@@ -231,7 +236,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
   <!-- LOGGED IN -->
   <section id="app" class="hidden">
 
-    <div class="panel">
+    <div id="demoBanner" class="demobar hidden">🧪 <b>Demo mode</b> — sample menu, estimated totals, no real order is placed. <a href="/login">Connect Swiggy</a> to use your real account.</div>
+
+    <div id="addrPanel" class="panel">
       <p class="label">Deliver to</p>
       <div class="field">
         <select id="address" onchange="onAddrChange()"></select>
@@ -303,9 +310,24 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
 
 <script>
 const $ = (id)=>document.getElementById(id);
-let addrCache=[], chosen=null, huntTimer=null, groupSize=1, lastRes=null, placeIdx=null;
+let addrCache=[], chosen=null, huntTimer=null, groupSize=1, lastRes=null, placeIdx=null, demoMode=false;
 
 function bumpGroup(d){ groupSize=Math.max(1,Math.min(20,groupSize+d)); $('groupVal').textContent=groupSize; }
+
+function startDemo(){
+  demoMode=true;
+  $('login').classList.add('hidden');
+  $('hdr').classList.remove('hidden');
+  $('app').classList.remove('hidden');
+  $('demoBanner').classList.remove('hidden');
+  $('addrPanel').classList.add('hidden');      // demo skips address + restaurant pick
+  $('nearbyPanel').classList.add('hidden');
+  chosen={id:'demo', name:'Pizza Palace (demo)'};
+  $('chosenName').textContent=chosen.name;
+  $('budgetPanel').classList.remove('hidden');
+  $('budgetPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  loadStats();
+}
 
 async function boot(){
   const me = await fetch('/api/me').then(r=>r.json()).catch(()=>({logged_in:false}));
@@ -417,7 +439,7 @@ async function optimize(){
   r.scrollIntoView({behavior:'smooth',block:'start'});
   try{
     const res = await fetch('/api/optimize',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({restaurantId:chosen.id,restaurantName:chosen.name,addressId:$('address').value,budget:+$('budget').value,drinks:$('drinkToggle').checked,vegOnly:$('vegToggle').checked,groupSize:groupSize})}).then(r=>r.json());
+      body:JSON.stringify({restaurantId:demoMode?'demo':chosen.id,restaurantName:chosen.name,addressId:demoMode?'demo':$('address').value,budget:+$('budget').value,drinks:$('drinkToggle').checked,vegOnly:$('vegToggle').checked,groupSize:groupSize,demo:demoMode})}).then(r=>r.json());
     clearInterval(huntTimer); render(res);
   }catch(e){ clearInterval(huntTimer); r.innerHTML=`<div class="panel"><p class="err">Something went wrong: ${esc(String(e))}</p></div>`; }
   finally{ $('goBtn').disabled=false; }
@@ -430,9 +452,12 @@ function render(res){
   const opts = res.options || [];
   const known=(res.branch_known_coupons||[]);
   const head = (res.group_size>1)?`<p class="rc-disclaimer" style="margin:0 0 10px">₹${res.per_head} per head · ${res.group_size} people · we aim for a main each</p>`:'';
+  const disclaimer = res.estimated
+    ? `Estimated totals (demo menu) — the live app reads Swiggy's authoritative bill. <a href="/login" style="color:var(--flame);font-weight:700">Connect Swiggy</a> to order on your account.`
+    : `Placing uses <b>Cash on Delivery</b> — you'll confirm before anything is ordered.${
+        known.length?` · Coupons known at this branch: <b>${known.map(esc).join(', ')}</b>`:''}`;
   r.innerHTML = head + opts.map((o,idx)=>receiptHTML(res.restaurant, o, idx, known, res.budget)).join('')
-    + `<p class="rc-disclaimer">Placing uses <b>Cash on Delivery</b> — you'll confirm before anything is ordered.${
-        known.length?` · Coupons known at this branch: <b>${known.map(esc).join(', ')}</b>`:''}</p>`;
+    + `<p class="rc-disclaimer">${disclaimer}</p>`;
   // count up each total
   opts.forEach((o,idx)=>{ const el=document.getElementById('cup'+idx); if(el) countUp(el, Math.round(o.bill.to_pay), 850); });
   setTimeout(loadStats, 9000);   // background coupon sweep may have proven more by now
@@ -459,7 +484,7 @@ function receiptHTML(restaurant, o, idx, known, budget){
     <div class="rc-line rc-fin"><span>Delivery</span><span class="${b.free_delivery?'save':'v'}">${b.free_delivery?'FREE':'charged'}</span></div>
     <div class="rc-total"><span class="k">TO PAY</span><span class="amt">₹<span id="cup${idx}">0</span></span></div>
     <div class="rc-tags">${tags}</div>
-    <button class="rc-order" onclick="askPlace(${idx})">Place this order →</button>
+    ${(lastRes && lastRes.demo) ? '' : `<button class="rc-order" onclick="askPlace(${idx})">Place this order →</button>`}
     <div class="barcode"></div>
   </div>`;
 }

@@ -587,6 +587,7 @@ class Menu:
                         time_window=tuple(window) if window else None,
                         addons=tuple(groups),
                         max_quantity=body.get("max_quantity", 1),
+                        is_veg=body.get("is_veg"),
                     )
                 )
             except KeyError as exc:
