@@ -24,10 +24,14 @@ login → pick restaurant → set budget + profile → optimal cart(s) → (opti
   group size ("for N people" → ₹/head and a main per head), and an opt-in drink
   (added the cheapest way — usually by converting a burger to a meal, valued as a
   bundle, rather than bolting on a soft drink).
-- **Coupons, discovered — never typed.** The app probes each candidate cart's
-  auto-suggested coupon plus a small discovery list, credits a code **only** when
-  it actually lowers the authoritative `to_pay`, and remembers winners per branch
-  in a **shared ledger** so the next user at that branch gets them first.
+- **Coupons, proven — never typed, never guessed.** A continuous
+  coupon-intelligence layer maintains a growing corpus of codes and *proves* each
+  against the real bill, per branch — crediting a code **only** when it actually
+  lowers the authoritative `to_pay`. Winners are shared **brand-wide** (a code
+  proven at one outlet is tried at every branch of that chain) in a shared
+  ledger, and re-validated on a TTL so expired coupons fall off. Discovery runs as
+  **opportunistic background sweeps** off real traffic — not "whatever the
+  platform suggests."
 - **Authoritative pricing.** The internal fee model only *ranks* carts; every
   total shown is read back from the platform's real cart bill.
 - **One-tap order (COD-aware).** A Place Order button rebuilds the exact cart,
@@ -91,7 +95,8 @@ async task-group `ExceptionGroup`s. The client layer handles this:
 | `cart_optimizer/swiggy_client.py` | async MCP client — rate limiter, 429 resilience |
 | `cart_optimizer/adapters/swiggy.py` | live responses → normalized `Menu` (variants, veg, prices) |
 | `cart_optimizer/discovery.py` / `run.py` | candidate proposal, real-price calibration, live verify |
-| `cart_optimizer/coupon_ledger.py` | shared per-branch coupon memory (SQLite) |
+| `cart_optimizer/coupon_ledger.py` | shared coupon memory — per-branch validity, brand sharing, TTL (SQLite) |
+| `cart_optimizer/coupon_monitor.py` | continuous coupon intelligence — corpus + background sweeps |
 | `webapp/server.py` | FastAPI backend (optimize, profiling, place-order, auth) |
 | `webapp/oauth.py` | OAuth 2.1 + PKCE login flow |
 | `webapp/static/index.html` | the UI (receipt aesthetic) |
@@ -100,7 +105,7 @@ async task-group `ExceptionGroup`s. The client layer handles this:
 
 ```bash
 python3 -m venv venv && venv/bin/pip install -r requirements-dev.txt
-venv/bin/python -m pytest                       # 490 tests (incl. DP-vs-oracle)
+venv/bin/python -m pytest                       # 498 tests (incl. DP-vs-oracle)
 
 # web app (local)
 venv/bin/uvicorn webapp.server:app --reload --port 8000   # http://localhost:8000
@@ -111,7 +116,7 @@ Render, env vars, the OAuth redirect): see `DEPLOY.md`.
 
 ## Engineering notes
 
-- **490 tests**, property-style: the optimizer is checked against a brute-force
+- **498 tests**, property-style: the optimizer is checked against a brute-force
   oracle on random menus; the live client's 429/limiter logic and the web layer's
   profiling/validation/placement gating are unit-tested.
 - Live shapes not yet seen (e.g. non-empty coupon payloads) raise rather than

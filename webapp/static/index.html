@@ -145,6 +145,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
 .btn-danger:disabled{opacity:.6;cursor:default}
 .order-done{text-align:center;padding:30px 20px}
 .order-done .big{font-family:"Fraunces",serif;font-size:24px;font-weight:800;margin:10px 0 4px}
+.cstat{text-align:center;color:var(--ink-2);font-size:13px;margin:26px auto 10px;max-width:560px;line-height:1.5}
+.cstat b{color:var(--ink)}
 .find{width:100%;background:var(--flame);color:#fff;font-weight:700;font-size:16px;padding:16px;
   border-radius:14px;box-shadow:var(--shadow);transition:transform .12s ease,filter .2s}
 .find:hover{filter:brightness(1.05);transform:translateY(-1px)}
@@ -280,6 +282,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
 
     <div id="result"></div>
   </section>
+  <p id="couponStat" class="cstat hidden"></p>
 
 </div>
 
@@ -306,8 +309,20 @@ function bumpGroup(d){ groupSize=Math.max(1,Math.min(20,groupSize+d)); $('groupV
 
 async function boot(){
   const me = await fetch('/api/me').then(r=>r.json()).catch(()=>({logged_in:false}));
-  if(me.logged_in){ $('hdr').classList.remove('hidden'); $('app').classList.remove('hidden'); loadAddresses(); }
+  if(me.logged_in){ $('hdr').classList.remove('hidden'); $('app').classList.remove('hidden'); loadAddresses(); loadStats(); }
   else { $('login').classList.remove('hidden'); }
+}
+
+async function loadStats(){
+  try{
+    const s = await fetch('/api/coupon-stats').then(r=>r.json());
+    if(s && s.working_coupons>0){
+      const el=$('couponStat'); el.classList.remove('hidden');
+      el.innerHTML = `🎟️ <b>${s.working_coupons}</b> coupons proven across <b>${s.branches}</b> `
+        + `branch${s.branches===1?'':'es'}${s.best_discount?` · best saving <b>₹${s.best_discount}</b>`:''} `
+        + `— discovered &amp; verified automatically, never guessed.`;
+    }
+  }catch(e){}
 }
 
 async function loadAddresses(){
@@ -420,6 +435,7 @@ function render(res){
         known.length?` · Coupons known at this branch: <b>${known.map(esc).join(', ')}</b>`:''}</p>`;
   // count up each total
   opts.forEach((o,idx)=>{ const el=document.getElementById('cup'+idx); if(el) countUp(el, Math.round(o.bill.to_pay), 850); });
+  setTimeout(loadStats, 9000);   // background coupon sweep may have proven more by now
 }
 
 function receiptHTML(restaurant, o, idx, known, budget){

@@ -41,6 +41,7 @@ from cart_optimizer.run import (
     _fetch_full_menu, _enrich_menu_detail, _verify_one, discover_prices,
 )
 from cart_optimizer.swiggy_client import SwiggyClient, SwiggyClientError, _is_rate_limited
+from cart_optimizer import coupon_monitor
 from . import oauth
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -458,6 +459,11 @@ async def optimize(request: Request, body: OptimizeRequest):
                          "to_pay": v.bill.to_pay} for v in chosen],
         }
 
+    # Opportunistic coupon intelligence: in the background, prove more codes for
+    # this branch on the representative cart — enriches the shared ledger so the
+    # next user (here or at any branch of this brand) gets them first.
+    _kick_coupon_sweep(token, rid, rname, addr, cart_to_swiggy_items(option1.cart))
+
     return {"found": True, "restaurant": rname,
             "budget": budget, "group_size": group_size,
             "per_head": round(budget / group_size),
@@ -508,6 +514,15 @@ def _option(v: VerifiedCart, budget: float, kind: str) -> dict:
 def branch_coupons(restaurant_id: str):
     """Shared, crowd-sourced coupons known to work at this branch."""
     return {"restaurant_id": restaurant_id, "coupons": ledger.known(restaurant_id)}
+
+
+@app.get("/api/coupon-stats")
+def coupon_stats():
+    """Aggregate coupon-intelligence stats (for the showcase surface)."""
+    try:
+        return ledger.stats()
+    except Exception:  # noqa: BLE001
+        return {"branches": 0, "working_coupons": 0, "codes_tracked": 0, "best_discount": 0}
 
 
 # ── order placement (user-initiated, COD-aware) ────────────────────────────────
@@ -612,6 +627,36 @@ _MENU_TTL = 600  # seconds
 # Per-session stash of the exact carts behind the options we last showed, so the
 # Place Order button can rebuild precisely what the user saw (keyed by session id).
 _PENDING: dict[str, dict] = {}
+
+# Background coupon sweeps (opportunistic coupon intelligence). One per branch at a
+# time; we keep task references so they aren't garbage-collected mid-flight.
+_SWEEP_TASKS: set = set()
+_SWEEPING: set[str] = set()
+
+
+def _kick_coupon_sweep(token: str, rid: str, rname: str, addr: str, cart_items: list) -> None:
+    """Fire-and-forget: prove untested/stale coupons for this branch on a
+    representative cart, enriching the shared ledger. Never blocks the response,
+    never places an order, paced by the global rate limiter."""
+    if not cart_items or rid in _SWEEPING:
+        return
+    _SWEEPING.add(rid)
+
+    async def _run():
+        try:
+            async with SwiggyClient(token) as client:
+                await coupon_monitor.sweep_branch(client, rid, rname, addr, cart_items, ledger)
+        except Exception as e:  # noqa: BLE001 — best-effort background work
+            log.warning("coupon sweep rid=%s failed: %s", rid, e)
+        finally:
+            _SWEEPING.discard(rid)
+
+    try:
+        task = asyncio.create_task(_run())
+        _SWEEP_TASKS.add(task)
+        task.add_done_callback(_SWEEP_TASKS.discard)
+    except RuntimeError:        # no running loop (e.g. called from a sync test) — skip
+        _SWEEPING.discard(rid)
 
 
 def _food_only(menu):
