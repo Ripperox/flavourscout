@@ -1,134 +1,107 @@
-# FlavourScout — the best-value food cart for your budget
+# 🍽️ FlavourScout
 
-Log in with your food account, enter a budget, and get the **highest-value cart
-that lands just under it** — priced by the platform's *authoritative bill*, with
-coupons discovered automatically and the order placeable in one tap.
+**Tell it your budget. It hands you the best-value food order you can get for that money — coupons and all.**
 
-It pairs a **provably optimal** offline optimizer (a coupon-aware
-multiple-choice knapsack, checked against a brute-force oracle) with a
-**resilient live pipeline** that calibrates to real prices, auto-discovers
-working coupons, and reads back the real bill before anything is shown.
+You pick a restaurant and a number (say ₹400). FlavourScout figures out the
+*highest-value cart that lands just under your budget* — the real total, after the
+best working coupon, delivery, and taxes. No more juggling items in your head or
+hunting for codes that turn out to be expired.
 
+> 🧪 **Want to see it without signing in?** Run it locally and click
+> **"Try the demo — no login"** on the home screen. It runs the real engine on a
+> sample menu.
+
+---
+
+## ✨ What you get
+
+- 🎯 **The best cart for your budget** — not just *a* cart that fits, the one with
+  the most value, landing just under your limit.
+- 🎟️ **Coupons found & proven for you** — it discovers working codes and checks
+  them against the *real* bill. No typing codes, no "this coupon isn't valid 😞".
+- 🥗 **Made your way** — veg-only, "for N people", and an optional drink (added the
+  smart way — usually by turning a burger into a meal, not bolting on a soda).
+- 🧾 **Honest totals** — every price is the platform's *real* checkout total, not a guess.
+- 🛵 **Order in one tap** — when you're happy, place it (Cash on Delivery) after a
+  clear confirmation. It never orders behind your back.
+
+---
+
+## 🚀 Run it in 60 seconds
+
+```bash
+git clone https://github.com/Ripperox/flavourscout.git
+cd flavourscout
+
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+
+venv/bin/uvicorn webapp.server:app --port 8000
 ```
-login → pick restaurant → set budget + profile → optimal cart(s) → (optional) place order
+
+Open **http://localhost:8000** → click **"Try the demo — no login"**, set a budget,
+and watch it build the cart. ✨
+
+*(To use it on your own Swiggy account you need Swiggy's MCP/builder access — the
+demo needs none.)*
+
+### 🐳 Or with Docker
+
+```bash
+docker build -t flavourscout .
+docker run -p 8000:8000 -e SESSION_SECRET=$(openssl rand -hex 16) flavourscout
 ```
 
-## What it does
+Open http://localhost:8000. (Add `-v flavourscout-data:/data` to keep the coupon
+ledger + logins across restarts.)
 
-- **Optimal cart under budget.** Maximum total preference, ties broken by lower
-  price, with the final amount (subtotal − best coupon + delivery + fees + GST)
-  within budget. Two options are shown: one strictly within budget, and an
-  optional "worth the stretch" cart that just exceeds it when the value jump is
-  real.
-- **Personalization.** Vegetarian-only (fail-safe: only items confirmed veg),
-  group size ("for N people" → ₹/head and a main per head), and an opt-in drink
-  (added the cheapest way — usually by converting a burger to a meal, valued as a
-  bundle, rather than bolting on a soft drink).
-- **Coupons, proven — never typed, never guessed.** A continuous
-  coupon-intelligence layer maintains a growing corpus of codes and *proves* each
-  against the real bill, per branch — crediting a code **only** when it actually
-  lowers the authoritative `to_pay`. Winners are shared **brand-wide** (a code
-  proven at one outlet is tried at every branch of that chain) in a shared
-  ledger, and re-validated on a TTL so expired coupons fall off. Discovery runs as
-  **opportunistic background sweeps** off real traffic — not "whatever the
-  platform suggests."
-- **Authoritative pricing.** The internal fee model only *ranks* carts; every
-  total shown is read back from the platform's real cart bill.
-- **One-tap order (COD-aware).** A Place Order button rebuilds the exact cart,
-  re-verifies the bill (price-drift guard), and places it — only after an
-  explicit confirmation dialog that states COD orders can't be cancelled.
+---
 
-## Why this isn't plain knapsack
+## 🧠 The clever bit (in plain English)
 
-Coupons break the knapsack assumption that adding an item only costs more.
-With `FLAT100 (₹100 off above ₹199)`, adding a ₹60 side to a ₹150 cart drops the
-final price from ₹150 to ₹110. The optimizer runs a multiple-choice knapsack DP
-over *exact* spend levels and evaluates every coupon as a function of spend;
-scoped coupons (e.g. "30% off pizzas") get a two-knapsack decomposition
-(in-scope × rest). Exact, no heuristics — menus and budgets are small enough that
-this is instant.
+Finding the best cart sounds easy — until coupons enter the picture. A coupon like
+*"₹100 off above ₹199"* means **adding an item can make your order cheaper**. That
+breaks normal "fill the basket" logic.
 
-Each product (item or combo) is first expanded into its valid order *lines* —
-variant × add-on selection × quantity (`choices.py`) — and the DP picks at most
-one line per product. So add-ons, quantities, and combos all ride the same
-machinery, and the step-function trick generalizes: adding cheese to a pizza can
-push it past a scoped coupon's threshold and end up *cheaper*.
+FlavourScout solves it *exactly* (it's a coupon-aware knapsack problem), so the
+answer is genuinely optimal — not a good guess. And to be sure the math is right,
+every result is cross-checked against a brute-force solver in the tests. ✅
 
-**Correctness is enforced by a brute-force oracle:** tests assert the DP equals
-full enumeration on hundreds of random menus (`tests/test_equivalence.py`). Both
-solvers share one pricing module so they cannot diverge on money math.
+It also keeps a **shared coupon brain**: a code proven to work at one outlet is
+tried first at every branch of that chain, and re-checked over time so expired
+ones drop off.
 
-## Reliability (built for a real, rate-limited backend)
+---
 
-The live platform rate-limits aggressively, and its errors arrive wrapped in
-async task-group `ExceptionGroup`s. The client layer handles this:
+## 🔒 Safety, by design
 
-- **Global rate limiter** paces every call to stay under the 429 ceiling.
-- **429 detection that walks the whole exception tree** (groups + cause chains),
-  with exponential backoff — a wrapped 429 no longer slips past a string match.
-- **Graceful transport teardown** so a poisoned connection can't turn a handled
-  failure into a 500.
-- **Graceful degradation end-to-end:** rate-limited → "busy, try again"; an
-  unsupported store (cart won't build) → a clear message distinct from "nothing
-  fits budget"; bad input → 422; unexpected → a clean JSON 500 (no traceback
-  leak). Structured logging throughout.
+- It **never places an order on its own** — only when *you* tap *Place Order* and
+  confirm. The confirmation spells out that Cash-on-Delivery can't be cancelled.
+- While searching, it only *reads* prices and clears any test cart afterwards.
+- Coupons are discovered for you — you're never asked to paste codes.
 
-## Safety
+---
 
-- **Order placement is never automatic.** `place_food_order` runs *only* from an
-  explicit, confirmed user click — never during optimization/probing. The
-  confirmation dialog shows the exact items + authoritative total and warns that
-  COD orders can't be cancelled or refunded.
-- Probe carts are **flushed after every probe**; coupons are auto-discovered, not
-  user-entered; the beta's sub-₹1000 placement cap is enforced.
+## 🛠️ Under the hood (for the curious)
 
-## Architecture
+A FastAPI backend + a single-page UI, with the optimizer as a clean, tested core.
 
-| Path | Role |
+| Area | Where |
 |---|---|
-| `cart_optimizer/optimizer.py` | the exact coupon-aware DP (ships) |
-| `cart_optimizer/brute_force.py` | enumeration oracle (tests only) |
-| `cart_optimizer/pricing.py` | shared money math (eligibility, discount, bill) |
-| `cart_optimizer/choices.py` | expand each product into valid order lines |
-| `cart_optimizer/models.py` | typed domain model (Item/Variant/Combo/Coupon/Cart/Menu…) |
-| `cart_optimizer/safe_eval.py` | sandboxed AST evaluator for coupon query strings |
-| `cart_optimizer/swiggy_client.py` | async MCP client — rate limiter, 429 resilience |
-| `cart_optimizer/adapters/swiggy.py` | live responses → normalized `Menu` (variants, veg, prices) |
-| `cart_optimizer/discovery.py` / `run.py` | candidate proposal, real-price calibration, live verify |
-| `cart_optimizer/coupon_ledger.py` | shared coupon memory — per-branch validity, brand sharing, TTL (SQLite) |
-| `cart_optimizer/coupon_monitor.py` | continuous coupon intelligence — corpus + background sweeps |
-| `webapp/server.py` | FastAPI backend (optimize, profiling, place-order, auth) |
-| `webapp/oauth.py` | OAuth 2.1 + PKCE login flow |
-| `webapp/static/index.html` | the UI (receipt aesthetic) |
+| Exact coupon-aware optimizer (the core IP) | `cart_optimizer/optimizer.py` |
+| Brute-force oracle (proves the optimizer in tests) | `cart_optimizer/brute_force.py` |
+| Shared money math (one source of truth) | `cart_optimizer/pricing.py` |
+| Continuous coupon discovery + per-branch ledger | `cart_optimizer/coupon_monitor.py`, `coupon_ledger.py` |
+| Resilient live client (rate-limit + retry aware) | `cart_optimizer/swiggy_client.py` |
+| Web app (optimize, profiling, demo, ordering, auth) | `webapp/server.py` |
+| The UI | `webapp/static/index.html` |
 
-## Run
-
-### Docker (easiest — no Python setup needed)
+**Tested:** 500 tests, including the optimizer-vs-oracle equivalence and the web
+layer's validation, profiling, and order-safety gating.
 
 ```bash
-docker-compose up --build
+venv/bin/pip install -r requirements-dev.txt
+venv/bin/python -m pytest          # 500 passing
 ```
 
-Open **http://localhost:8000** → click **"Try the demo — no login"** → set a budget → see the optimizer in action.
-
-### Local dev
-
-```bash
-python3 -m venv venv && venv/bin/pip install -r requirements-dev.txt
-venv/bin/python -m pytest                       # 500 tests (incl. DP-vs-oracle)
-
-# web app
-venv/bin/uvicorn webapp.server:app --reload --port 8000   # http://localhost:8000
-```
-
-Runtime-only install: `pip install -r requirements.txt`. Deploy notes (Docker /
-Render, env vars, the OAuth redirect): see `DEPLOY.md`.
-
-## Engineering notes
-
-- **498 tests**, property-style: the optimizer is checked against a brute-force
-  oracle on random menus; the live client's 429/limiter logic and the web layer's
-  profiling/validation/placement gating are unit-tested.
-- Live shapes not yet seen (e.g. non-empty coupon payloads) raise rather than
-  being guessed — the model never silently mis-prices.
-- Design specs live in `docs/superpowers/specs/`.
+Deploying (Docker / Render, env vars, the OAuth note): see **[`DEPLOY.md`](DEPLOY.md)**.

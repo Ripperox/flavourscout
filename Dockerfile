@@ -16,7 +16,10 @@ RUN mkdir -p /data
 
 ENV COUPON_DB=/data/coupons.db
 ENV SESSION_FILE=/data/sessions.json
-ENV SESSION_SECRET=docker-local-dev
+# SESSION_SECRET is a secret — never baked into the image. Provide it at runtime:
+#   Render generates it (see render.yaml); locally pass `-e SESSION_SECRET=...`.
+#   If unset, the app falls back to a random per-process secret (logins reset on
+#   restart). Cookie-signing only — not Swiggy credentials.
 EXPOSE 8000
 
 CMD ["sh", "-c", "uvicorn webapp.server:app --host 0.0.0.0 --port ${PORT:-8000}"]
