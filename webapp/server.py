@@ -504,8 +504,11 @@ def _line_veg(line):
 
 
 def _demo_optimize(body: OptimizeRequest) -> dict:
-    """No-login demo: run the real optimizer + profiling on the bundled menu.
-    Totals are ESTIMATED from the internal fee model (no live bill, no ordering)."""
+    """No-login demo: run the REAL optimizer on a realistic sample menu and return
+    a *proof* of how it found the cart (strategy + the exact math + a no-coupon
+    baseline + the correctness guarantee), then the answer. Totals are ESTIMATED
+    from the internal fee model (no live bill, no ordering)."""
+    import dataclasses
     menu = demo_menu()
     if not body.drinks:
         menu = _food_only(menu)
@@ -516,11 +519,50 @@ def _demo_optimize(body: OptimizeRequest) -> dict:
                     "message": "No vegetarian items in the demo menu."}
 
     budget = float(body.budget)
-    stretch = budget * (1 + BUDGET_BUFFER)
-    opt1 = _demo_option(menu, budget, budget, "within")
-    if not opt1:
+    user = User()
+
+    # The provably-optimal cart for this budget (the real coupon-aware DP).
+    result = best_cart(menu, user, CONFIG, budget)
+    if not result.cart.lines:
         return {"found": False, "restaurant": DEMO_RESTAURANT, "demo": True,
                 "message": f"No cart fits ₹{budget:.0f} in the demo menu."}
+
+    # Baseline: best cart the SAME budget buys with NO coupons — shows the value
+    # the coupon-aware optimization adds.
+    baseline = best_cart(dataclasses.replace(menu, coupons=()), user, CONFIG, budget)
+
+    b = result.breakdown
+    code = result.coupon.id.replace("off_", "").upper() if result.coupon else None
+    proof = {
+        "menu_items": len(menu.items),
+        "menu_coupons": len(menu.coupons),
+        "budget": round(budget),
+        "lines": [{"name": _line_name(l), "price": round(l.cost), "veg": _line_veg(l)}
+                  for l in result.cart.lines],
+        "subtotal": round(b.subtotal),
+        "coupon": code,
+        "coupon_desc": (result.coupon.description if result.coupon else None),
+        "discount": round(b.discount),
+        "delivery": round(b.delivery_fee),
+        "platform_fee": round(b.platform_fee),
+        "gst": round(b.tax),
+        "gst_rate": round(CONFIG.gst_rate * 100),
+        "total": round(b.total),
+        "won_pref": round(result.preference, 2),
+        "baseline_total": round(baseline.breakdown.total),
+        "baseline_pref": round(baseline.preference, 2),
+        "steps": [
+            f"Expanded the {len(menu.items)}-item menu into every orderable line "
+            "(each variant + add-on combination).",
+            "Ran an exact multiple-choice knapsack over every spend level — not a greedy guess.",
+            f"Evaluated all {len(menu.coupons)} coupons as a function of spend — a threshold "
+            "coupon can make adding an item *lower* the final bill.",
+            f"Kept the highest taste-value cart whose final bill stays under ₹{round(budget)}.",
+        ],
+    }
+
+    stretch = budget * (1 + BUDGET_BUFFER)
+    opt1 = _demo_option(menu, budget, budget, "within")
     options = [opt1]
     stretch_opt = _demo_option(menu, stretch, budget, "stretch")
     if (stretch_opt and stretch_opt["bill"]["to_pay"] > budget + 0.5
@@ -530,7 +572,7 @@ def _demo_optimize(body: OptimizeRequest) -> dict:
     return {"found": True, "restaurant": DEMO_RESTAURANT, "demo": True, "estimated": True,
             "budget": budget, "group_size": body.groupSize,
             "per_head": round(budget / body.groupSize),
-            "options": options, "branch_known_coupons": []}
+            "proof": proof, "options": options, "branch_known_coupons": []}
 
 
 def _demo_option(menu, solve_budget: float, display_budget: float, kind: str) -> dict | None:

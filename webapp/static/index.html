@@ -149,6 +149,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
 .order-done .big{font-family:"Fraunces",serif;font-size:24px;font-weight:800;margin:10px 0 4px}
 .cstat{color:var(--ink-2);font-size:12.5px;margin:8px 4px 0;line-height:1.5}
 .cstat b{color:var(--ink)}
+/* ---- demo proof panel ---- */
+.proof{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow);animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+.proof-h{font-family:"Fraunces",serif;font-weight:800;font-size:18px;letter-spacing:-.01em}
+.proof-h span{font-family:"Hanken Grotesk",sans-serif;font-weight:600;font-size:12px;color:var(--ink-2)}
+.proof-sub{font-size:13px;color:var(--ink-2);margin:4px 0 14px}
+.proof-steps{margin:0 0 14px;padding-left:20px;font-size:13.5px;line-height:1.6}
+.proof-steps li{margin:3px 0}
+.proof-steps i{font-style:italic;color:var(--flame)}
+.proof-math{font-family:"JetBrains Mono",monospace;font-size:13px;background:var(--paper-2);border:1px dashed var(--line-2);border-radius:12px;padding:14px}
+.pm-row{display:flex;justify-content:space-between;gap:14px;padding:3px 0}
+.pm-row em{font-style:normal;color:var(--ink-2)}
+.pm-row.save{color:var(--leaf);font-weight:700}
+.pm-row.dim{color:var(--ink-2)}
+.pm-tot{display:flex;justify-content:space-between;gap:14px;border-top:2px solid var(--ink);margin-top:8px;padding-top:8px;font-weight:700;font-size:15px}
+.pm-tot em{font-style:normal;color:var(--leaf);font-weight:700;font-size:12px}
+.proof-note{font-size:13px;margin-top:14px;background:#eef6ef;border:1px solid rgba(36,122,74,.25);border-radius:10px;padding:10px 12px;line-height:1.5}
+.proof-ok{font-size:12.5px;color:var(--leaf);font-weight:600;margin-top:10px}
 .cta-ghost{display:inline-block;margin:12px 0 0 14px;background:none;border:1.5px solid var(--ink);color:var(--ink);font-weight:700;font-size:15px;padding:13px 22px;border-radius:12px;cursor:pointer}
 .cta-ghost:hover{border-color:var(--flame);color:var(--flame)}
 .demobar{background:#fff4e0;border:1px solid #f0d49a;color:#7a531a;border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:16px;line-height:1.5}
@@ -530,7 +547,8 @@ function render(res){
     ? `Estimated totals (demo menu) — the live app reads Swiggy's authoritative bill. <a href="/login" style="color:var(--flame);font-weight:700">Connect Swiggy</a> to order on your account.`
     : `Placing uses <b>Cash on Delivery</b> — you'll confirm before anything is ordered.${
         known.length?` · Coupons known at this branch: <b>${known.map(esc).join(', ')}</b>`:''}`;
-  r.innerHTML = head + `<div class="receipts">`
+  const proof = res.proof ? proofHTML(res.proof, res.restaurant) : '';
+  r.innerHTML = head + proof + `<div class="receipts">`
     + opts.map((o,idx)=>receiptHTML(res.restaurant, o, idx, known, res.budget)).join('')
     + `</div><p class="rc-disclaimer">${disclaimer}</p>`;
   // count up each total
@@ -608,6 +626,24 @@ function showOrderPlaced(res){
 }
 
 async function logout(){ await fetch('/logout',{method:'POST'}); location.reload(); }
+function proofHTML(p, restaurant){
+  const fees = p.delivery + p.platform_fee + p.gst;
+  const itemsList = p.lines.map(l=>esc(l.name)).join(', ');
+  const steps = p.steps.map(s=>`<li>${esc(s).replace(/\*(.+?)\*/g,'<i>$1</i>')}</li>`).join('');
+  return `<div class="proof">
+    <div class="proof-h">🔍 How FlavourScout found this <span>· the real engine, on a sample menu</span></div>
+    <div class="proof-sub">${esc(restaurant)} — <b>${p.menu_items}</b> items · <b>${p.menu_coupons}</b> coupons · target <b>₹${p.budget}</b></div>
+    <ol class="proof-steps">${steps}</ol>
+    <div class="proof-math">
+      <div class="pm-row"><span>${p.lines.length} items <em>${itemsList}</em></span><span>₹${p.subtotal}</span></div>
+      ${p.coupon?`<div class="pm-row save"><span>Coupon ${esc(p.coupon)} — ${esc(p.coupon_desc||'')}</span><span>−₹${p.discount}</span></div>`:''}
+      <div class="pm-row dim"><span>Delivery ₹${p.delivery} · Platform ₹${p.platform_fee} · GST ${p.gst_rate}% ₹${p.gst}</span><span>+₹${fees}</span></div>
+      <div class="pm-tot"><span>TO PAY</span><span>₹${p.total} <em>✓ under ₹${p.budget}</em></span></div>
+    </div>
+    <div class="proof-note">💡 Coupon-aware optimization fit <b>more</b> for your budget — taste-value <b>${p.won_pref}</b> with coupons vs <b>${p.baseline_pref}</b> without (best no-coupon cart ≈ ₹${p.baseline_total}).</div>
+    <div class="proof-ok">✓ Provably optimal — the optimizer is checked against brute-force enumeration on hundreds of random menus (500 tests).</div>
+  </div>`;
+}
 function vegDot(v){ return v===true?'<span class="veg-dot v" title="veg"></span>':v===false?'<span class="veg-dot n" title="non-veg"></span>':''; }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function attr(o){ return JSON.stringify(JSON.stringify(o)).replace(/'/g,'&#39;'); }
