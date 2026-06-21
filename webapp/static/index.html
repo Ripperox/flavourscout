@@ -94,6 +94,12 @@ select:focus,input[type=text]:focus{border-color:var(--flame);box-shadow:0 0 0 3
 
 /* ---- restaurant cards ---- */
 .rgrid{display:grid;gap:10px}
+/* stage stacking: sample-menu context first, then results, then the picker —
+   so a result is never buried below a long restaurant list (any breakpoint) */
+.stage{display:flex;flex-direction:column;gap:14px}
+.stage #sampleMenu{order:-2}
+.stage #result{order:-1}
+.stage #result:empty{display:none}
 .rest{display:flex;align-items:center;gap:14px;text-align:left;width:100%;
   background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:13px 14px;
   transition:transform .14s ease,border-color .15s ease,box-shadow .2s ease}
@@ -260,9 +266,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
   .stage{min-width:0;display:flex;flex-direction:column;gap:16px}
   .stage .panel{margin-bottom:0}
   .rgrid{grid-template-columns:1fr 1fr}
-  .receipts{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;align-items:start}
+  .receipts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,440px));gap:20px;align-items:start;justify-content:start}
   .receipts .receipt{margin-bottom:0}
 }
+
+/* ---- production polish: keyboard focus rings + staggered reveals ---- */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{
+  outline:2.5px solid var(--flame);outline-offset:3px;border-radius:10px}
+.rest{animation:rise .45s cubic-bezier(.2,.7,.2,1) both}
+.rgrid .rest:nth-child(2){animation-delay:.04s}
+.rgrid .rest:nth-child(3){animation-delay:.08s}
+.rgrid .rest:nth-child(4){animation-delay:.12s}
+.rgrid .rest:nth-child(5){animation-delay:.16s}
+.rgrid .rest:nth-child(6){animation-delay:.20s}
+.rgrid .rest:nth-child(n+7){animation-delay:.24s}
 
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes print{from{opacity:0;transform:translateY(-10px) scaleY(.96);transform-origin:top}to{opacity:1;transform:none}}
