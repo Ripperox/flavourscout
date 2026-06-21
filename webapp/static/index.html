@@ -263,8 +263,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
         <div class="eyebrow">Best value, found for you</div>
         <h1>Eat better<br>for <em>exactly</em><br>your budget.</h1>
         <p>Tell us a number. We build carts on your Swiggy, hunt every coupon that could apply, and hand you the highest-value order that lands just under budget — coupons auto-discovered, never typed.</p>
-        <a class="cta" onclick="startDemo()" style="cursor:pointer">Connect Swiggy →</a>
-        <div class="swiggy-note">⏳ <b>Opens the live demo.</b> Real Swiggy login works when you run FlavourScout <b>locally</b> — bringing it to this hosted site (with higher rate limits) needs Swiggy's builder program, which is in progress.</div>
+        <a class="cta" href="/login">Connect Swiggy →</a>
+        <button class="cta-ghost" onclick="startDemo()">Try the demo — no login →</button>
+        <div class="swiggy-note">We sign you into your own Swiggy account and build real carts on it. If Swiggy login isn't available (e.g. on the hosted site — pending builder-program access), you'll drop straight into the live demo: same engine, sample menu.</div>
         <div class="tiny">We only ever place an order on your explicit confirmation.</div>
       </div>
       <div class="hero-preview" aria-hidden="true">
@@ -390,9 +391,11 @@ function startDemo(){
 }
 
 async function boot(){
+  const wantDemo = new URLSearchParams(location.search).get('demo')==='1';
   const me = await fetch('/api/me').then(r=>r.json()).catch(()=>({logged_in:false}));
-  if(me.logged_in){ $('hdr').classList.remove('hidden'); $('app').classList.remove('hidden'); loadAddresses(); loadStats(); }
-  else { $('login').classList.remove('hidden'); }
+  if(me.logged_in){ $('hdr').classList.remove('hidden'); $('app').classList.remove('hidden'); loadAddresses(); loadStats(); return; }
+  if(wantDemo){ history.replaceState({}, '', '/'); startDemo(); return; }  // login fell back to demo
+  $('login').classList.remove('hidden');
 }
 
 async function loadStats(){

@@ -147,31 +147,38 @@ def _token(request: Request) -> str:
 
 @app.get("/login")
 def login(request: Request):
-    redirect_uri = _redirect_uri(request)
-    client_id = oauth.resolve_client_id(redirect_uri)
-    auth_url, verifier, state = oauth.start_login(redirect_uri, client_id)
-    sid = secrets.token_urlsafe(24)
-    request.session["sid"] = sid
-    _SESSIONS[sid] = {"pkce": verifier, "state": state, "client_id": client_id}
-    _save_sessions()
-    return RedirectResponse(auth_url)
+    """Always try real Swiggy login; if setup fails (no usable client, etc.),
+    fall back to the no-login demo (/?demo=1)."""
+    try:
+        redirect_uri = _redirect_uri(request)
+        client_id = oauth.resolve_client_id(redirect_uri)
+        auth_url, verifier, state = oauth.start_login(redirect_uri, client_id)
+        sid = secrets.token_urlsafe(24)
+        request.session["sid"] = sid
+        _SESSIONS[sid] = {"pkce": verifier, "state": state, "client_id": client_id}
+        _save_sessions()
+        return RedirectResponse(auth_url)
+    except Exception as e:  # noqa: BLE001 — login unavailable → demo
+        log.warning("Swiggy login unavailable, falling back to demo: %s", e)
+        return RedirectResponse("/?demo=1")
 
 
 @app.get("/callback")
 def callback(request: Request, code: str | None = None, state: str | None = None,
              error: str | None = None):
+    """On any login failure (Swiggy error, bad state, token exchange), fall back
+    to the demo instead of showing an error page."""
     sess = _session(request)
-    if error:
-        return HTMLResponse(f"<h3>Login failed: {error}</h3><a href='/'>back</a>", status_code=400)
-    if not sess or not code or state != sess.get("state"):
-        return HTMLResponse("<h3>Invalid login state.</h3><a href='/'>back</a>", status_code=400)
+    if error or not sess or not code or state != sess.get("state"):
+        log.warning("Swiggy login failed (error=%s); falling back to demo", error)
+        return RedirectResponse("/?demo=1")
     try:
         tokens = oauth.exchange_code(
             code, _redirect_uri(request), sess["client_id"], sess["pkce"]
         )
-    except Exception as e:  # noqa: BLE001
-        return HTMLResponse(f"<h3>Token exchange failed: {e}</h3><a href='/'>back</a>",
-                            status_code=400)
+    except Exception as e:  # noqa: BLE001 — token exchange failed → demo
+        log.warning("token exchange failed, falling back to demo: %s", e)
+        return RedirectResponse("/?demo=1")
     sess.pop("pkce", None)
     _store_tokens(sess, tokens)
     _save_sessions()
