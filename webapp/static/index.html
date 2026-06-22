@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>FlavourScout — the best-value Swiggy cart for your budget</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,7 +42,12 @@ button{font-family:inherit;cursor:pointer;border:0}
 input,select{font-family:inherit}
 
 /* ---- header ---- */
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+header{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:0 -20px 14px;padding:11px 20px;
+  background:color-mix(in srgb,var(--paper) 80%,transparent);
+  -webkit-backdrop-filter:blur(12px) saturate(1.15);backdrop-filter:blur(12px) saturate(1.15);
+  border-bottom:1px solid transparent;transition:border-color .25s ease,box-shadow .25s ease}
+header.stuck{border-bottom-color:var(--line);box-shadow:0 12px 30px -26px rgba(60,40,20,.55)}
 .brand{display:flex;align-items:center;gap:11px;font-family:"Fraunces",serif;font-weight:900;
   font-size:22px;letter-spacing:-.02em}
 .mark{width:34px;height:34px;border-radius:10px;background:var(--ink);color:var(--paper-2);
@@ -51,7 +56,11 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;ma
   border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;max-width:55vw}
 .loc-pill b{font-weight:700}
 .loc-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--leaf);flex:0 0 auto}
-.linkbtn{background:none;color:var(--ink-2);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.acct{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--ink-2);
+  transition:border-color .15s ease,color .15s ease,transform .12s ease}
+.acct:hover{border-color:var(--flame);color:var(--flame)}
+.acct:active{transform:scale(.97)}
 
 /* ---- hero (logged out) ---- */
 .hero{padding:34px 0 10px;animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
@@ -197,6 +206,25 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
 @keyframes spin{to{transform:rotate(360deg)}}
 .hunt .msg{font-family:"Fraunces",serif;font-weight:600;font-size:19px;min-height:1.4em;transition:opacity .3s}
 .hunt .sub{font-size:13px;color:var(--ink-2);margin-top:6px}
+.hunt-steps{display:flex;gap:7px;justify-content:center;margin-top:16px}
+.hunt-steps i{width:7px;height:7px;border-radius:50%;background:var(--line-2);transition:background .3s,transform .3s}
+.hunt-steps i.on{background:var(--flame);transform:scale(1.3)}
+/* skeletons */
+.skel-rest{display:flex;align-items:center;gap:14px;padding:13px 14px;background:var(--paper-2);
+  border:1px solid var(--line);border-radius:14px;position:relative;overflow:hidden}
+.skel-rest+.skel-rest{margin-top:10px}
+.skel-rest .sk-ava{width:42px;height:42px;border-radius:12px;background:var(--line);flex:0 0 auto}
+.skel-rest .sk-lines{flex:1;display:flex;flex-direction:column;gap:9px}
+.sk-bar{height:10px;border-radius:6px;background:var(--line)}
+.shimmer::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:shimmer 1.5s infinite}
+@keyframes shimmer{to{transform:translateX(100%)}}
+/* empty / error states */
+.empty{text-align:center;padding:28px 16px;color:var(--ink-2)}
+.empty .ico{font-size:30px;display:block;margin-bottom:8px}
+.empty .t{font-family:"Fraunces",serif;font-weight:700;font-size:17px;color:var(--ink);margin-bottom:4px}
+.empty p{margin:4px auto 0;max-width:30em}
+.empty .btn{display:inline-block;margin-top:14px}
 
 /* ---- receipt ---- */
 .receipt{position:relative;background:var(--paper-2);color:var(--ink);border:1px solid var(--line);
@@ -254,6 +282,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
 /* ---- desktop layout (keep the mobile column on narrow screens) ---- */
 @media (min-width:900px){
   .wrap{max-width:1140px;padding:26px 34px 96px}
+  header{margin-left:-34px;margin-right:-34px;padding-left:34px;padding-right:34px}
   .hero{display:grid;grid-template-columns:1.05fr .9fr;gap:54px;align-items:center;padding:52px 0 26px}
   .hero-copy{grid-column:1}
   .hero p{margin-bottom:24px}
@@ -267,10 +296,36 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
   .stage .panel{margin-bottom:0}
   .rgrid{grid-template-columns:1fr 1fr}
   .receipts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,440px));gap:20px;align-items:start;justify-content:start}
-  .receipts .receipt{margin-bottom:0}
+  .receipts .receipt{margin-bottom:0;transition:transform .22s cubic-bezier(.2,.7,.2,1),box-shadow .22s ease}
+  .receipts .receipt:hover{transform:translateY(-3px);box-shadow:0 1px 0 rgba(0,0,0,.04),0 28px 54px -26px rgba(60,40,20,.5)}
+}
+
+/* ---- phones ---- */
+@media (max-width:560px){
+  .wrap{padding:16px 16px 60px}
+  header{margin:0 -16px 12px;padding:10px 16px}
+  .brand{font-size:19px}
+  .mark{width:30px;height:30px;font-size:17px}
+  .loc-pill{max-width:40vw;padding:6px 11px}
+  .hero{padding:20px 0 4px}
+  .hero p{font-size:16px;margin-bottom:18px}
+  .cta,.cta-ghost{display:flex;justify-content:center;width:100%;margin:0 0 10px}
+  .cta-ghost{margin-left:0}
+  .panel{padding:16px}
+  .presets{gap:6px}
+  .preset{font-size:13px;padding:8px 0}
+  .budget-val{font-size:30px}
+  .rc-total .amt{font-size:34px}
+  .rc-rest{font-size:21px}
+  .receipt{padding:22px 18px 20px}
+  .modal{padding:22px}
+  .proof{padding:18px}
 }
 
 /* ---- production polish: keyboard focus rings + staggered reveals ---- */
+/* leave room under the sticky header for smooth-scroll targets */
+#budgetPanel,#nearbyPanel,#result,.stage,.proof{scroll-margin-top:84px}
+.rest:active{transform:translateY(0) scale(.99)}
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{
   outline:2.5px solid var(--flame);outline-offset:3px;border-radius:10px}
 .rest{animation:rise .45s cubic-bezier(.2,.7,.2,1) both}
@@ -295,7 +350,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[t
     <div class="brand"><span class="mark">◓</span> FlavourScout</div>
     <div style="display:flex;align-items:center;gap:10px">
       <span id="locPill" class="loc-pill hidden"><span class="dot"></span><b id="locText">—</b></span>
-      <button class="linkbtn" onclick="logout()">Log out</button>
+      <button id="acctBtn" class="acct" onclick="exitOrLogout()">Log out</button>
     </div>
   </header>
 
@@ -424,6 +479,7 @@ function startDemo(){
   $('hdr').classList.remove('hidden');
   $('app').classList.remove('hidden');
   $('demoBanner').classList.remove('hidden');
+  $('acctBtn').textContent='Exit demo';
   $('addrPanel').classList.add('hidden');      // demo skips address + restaurant pick
   $('nearbyPanel').classList.add('hidden');
   $('workspace').classList.add('has-pick');
@@ -504,23 +560,28 @@ function restCard(r){
   </button>`;
 }
 
+function skeletons(n){ return Array.from({length:n},()=>
+  `<div class="skel-rest shimmer"><span class="sk-ava"></span><span class="sk-lines"><span class="sk-bar" style="width:55%"></span><span class="sk-bar" style="width:32%"></span></span></div>`).join(''); }
+
 async function loadNearby(){
   const id=$('address').value; if(!id) return;
   $('nearbyPanel').classList.remove('hidden');
-  $('nearby').innerHTML = `<p class="muted spin">Finding nearby restaurants…</p>`;
+  $('nearby').innerHTML = skeletons(4);
   try{
     const rs = await fetch(`/api/nearby?addressId=${id}`).then(r=>r.json());
-    $('nearby').innerHTML = rs.length ? rs.map(restCard).join('') : `<p class="muted">No supported restaurants deliver here right now.</p>`;
-  }catch(e){ $('nearby').innerHTML = `<p class="err">Couldn’t load nearby (${e}).</p>`; }
+    $('nearby').innerHTML = rs.length ? rs.map(restCard).join('')
+      : `<div class="empty"><span class="ico">🛵</span><div class="t">Nothing supported here yet</div><p>No supported restaurants deliver to this address right now — try another saved address, or search by name below.</p></div>`;
+  }catch(e){ $('nearby').innerHTML = `<div class="empty"><span class="ico">⚠️</span><div class="t">Couldn’t load restaurants</div><p>Swiggy may be busy for a moment.</p><button class="btn ghost" onclick="loadNearby()">Try again</button></div>`; }
 }
 
 async function search(){
   const q=$('q').value.trim(); if(!q) return; const id=$('address').value;
-  $('results').innerHTML = `<p class="muted spin">Searching…</p>`;
+  $('results').innerHTML = skeletons(3);
   try{
     const rs = await fetch(`/api/restaurants?q=${encodeURIComponent(q)}&addressId=${id}`).then(r=>r.json());
-    $('results').innerHTML = rs.length ? rs.map(restCard).join('') : `<p class="muted">No open restaurants found.</p>`;
-  }catch(e){ $('results').innerHTML = `<p class="err">${e}</p>`; }
+    $('results').innerHTML = rs.length ? rs.map(restCard).join('')
+      : `<div class="empty"><span class="ico">🔍</span><div class="t">No matches for “${esc(q)}”</div><p>Try a different name, or pick one from nearby.</p></div>`;
+  }catch(e){ $('results').innerHTML = `<div class="empty"><span class="ico">⚠️</span><div class="t">Search hiccup</div><p>Please try that again in a moment.</p></div>`; }
 }
 
 function useMyLocation(){
@@ -577,8 +638,9 @@ async function optimize(){
   if(!chosen) return;
   $('goBtn').disabled=true;
   let i=0; const r=$('result');
-  const paint=()=>{ const m=HUNT_MSGS[i%HUNT_MSGS.length];
-    r.innerHTML=`<div class="panel hunt"><div class="radar"></div><div class="msg">${m[0]}</div><div class="sub">${m[1]}</div></div>`; i++; };
+  const paint=()=>{ const n=HUNT_MSGS.length, k=i%n, m=HUNT_MSGS[k];
+    const dots=Array.from({length:n},(_,j)=>`<i class="${(i>=n||j<=k)?'on':''}"></i>`).join('');
+    r.innerHTML=`<div class="panel hunt"><div class="radar"></div><div class="msg">${m[0]}</div><div class="sub">${m[1]}</div><div class="hunt-steps">${dots}</div></div>`; i++; };
   paint(); huntTimer=setInterval(paint,2600);
   r.scrollIntoView({behavior:'smooth',block:'start'});
   try{
@@ -591,7 +653,9 @@ async function optimize(){
 
 function render(res){
   const r=$('result');
-  if(!res.found){ r.innerHTML=`<div class="panel"><p class="muted">${esc(res.message||'No cart fits that budget.')}</p></div>`; return; }
+  if(!res.found){ r.innerHTML=`<div class="panel"><div class="empty"><span class="ico">🧮</span>`
+    + `<div class="t">No cart fits${res.budget?` ₹${Math.round(res.budget)}`:' that budget'}</div>`
+    + `<p>${esc(res.message||'Try nudging the budget up a little — even ₹20–₹50 often unlocks a better combo.')}</p></div></div>`; return; }
   lastRes = res;
   const opts = res.options || [];
   const known=(res.branch_known_coupons||[]);
@@ -678,7 +742,10 @@ function showOrderPlaced(res){
   $('result').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-async function logout(){ await fetch('/logout',{method:'POST'}); location.reload(); }
+async function exitOrLogout(){
+  if(demoMode){ location.href='/'; return; }   // demo has no session — return to the landing page
+  await fetch('/logout',{method:'POST'}); location.reload();
+}
 function proofHTML(p, restaurant){
   const fees = p.delivery + p.platform_fee + p.gst;
   const itemsList = p.lines.map(l=>esc(l.name)).join(', ');
@@ -700,6 +767,8 @@ function proofHTML(p, restaurant){
 function vegDot(v){ return v===true?'<span class="veg-dot v" title="veg"></span>':v===false?'<span class="veg-dot n" title="non-veg"></span>':''; }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function attr(o){ return JSON.stringify(JSON.stringify(o)).replace(/'/g,'&#39;'); }
+/* sticky-header hairline appears once the page scrolls */
+addEventListener('scroll',()=>{ const h=$('hdr'); if(h && !h.classList.contains('hidden')) h.classList.toggle('stuck', scrollY>6); }, {passive:true});
 boot();
 </script>
 </body>
